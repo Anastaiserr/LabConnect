@@ -554,3 +554,61 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+/* Стили для страницы настроек */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.setting-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 2rem;
+    border-left: 4px solid var(--secondary-color);
+    transition: all 0.3s;
+}
+
+.setting-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.setting-card.danger {
+    border-left-color: var(--danger-color);
+    background: #fdf2f2;
+}
+
+.setting-card h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+.setting-card p {
+    color: #666;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.setting-card .btn {
+    width: 100%;
+}
+
+.warning-message {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.warning-message h4 {
+    color: #856404;
+    margin-bottom: 0.5rem;
+}
+
+.warning-message p {
+    color: #856404;
+    margin: 0;
+}

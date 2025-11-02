@@ -39,6 +39,7 @@
                     <li><a href="#submitted-works" class="nav-link" data-tab="submitted-works">Сданные работы</a></li>
                     <li><a href="#calendar" class="nav-link" data-tab="calendar">Календарь</a></li>
                     <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
+                    <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
                 </ul>
             </nav>
 
@@ -103,25 +104,91 @@
                     </div>
                 </div>
 
-                <!-- Остальные вкладки остаются без изменений -->
+                <div id="settings" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Настройки профиля</h3>
+                    </div>
+                    <div class="settings-redirect">
+                        <p>Для управления настройками профиля перейдите на специальную страницу:</p>
+                        <a href="settings.html" class="btn btn-primary">Перейти к настройкам</a>
+                    </div>
+                </div>
+
+                <!-- Вкладка Мои задания -->
                 <div id="my-tasks" class="tab-content">
-                    <!-- ... существующий контент ... -->
+                    <div class="tab-header">
+                        <h3>Мои задания</h3>
+                        <div class="filter-options">
+                            <select id="task-filter">
+                                <option value="all">Все задания</option>
+                                <option value="active">Активные</option>
+                                <option value="completed">Выполненные</option>
+                                <option value="overdue">Просроченные</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tasks-list" id="tasks-container">
+                        <!-- Задания будут загружены через JavaScript -->
+                    </div>
                 </div>
 
+                <!-- Вкладка Доступные задания -->
                 <div id="available-tasks" class="tab-content">
-                    <!-- ... существующий контент ... -->
+                    <h3>Доступные задания</h3>
+                    <div class="courses-list">
+                        <!-- Курсы и задания будут загружены через JavaScript -->
+                    </div>
                 </div>
 
+                <!-- Вкладка Сданные работы -->
                 <div id="submitted-works" class="tab-content">
-                    <!-- ... существующий контент ... -->
+                    <h3>Сданные работы</h3>
+                    <div class="submitted-works-list">
+                        <!-- Сданные работы будут загружены через JavaScript -->
+                    </div>
                 </div>
 
+                <!-- Вкладка Календарь -->
                 <div id="calendar" class="tab-content">
-                    <!-- ... существующий контент ... -->
+                    <div class="tab-header">
+                        <h3>Календарь заданий</h3>
+                        <div class="calendar-controls">
+                            <button id="prev-month" class="btn btn-secondary">&lt;</button>
+                            <span id="current-month">Май 2025</span>
+                            <button id="next-month" class="btn btn-secondary">&gt;</button>
+                        </div>
+                    </div>
+                    <div class="calendar-container">
+                        <div class="calendar" id="calendar-widget">
+                            <!-- Календарь будет сгенерирован через JavaScript -->
+                        </div>
+                        <div class="upcoming-deadlines">
+                            <h4>Ближайшие дедлайны</h4>
+                            <div class="deadlines-list">
+                                <!-- Дедлайны будут загружены через JavaScript -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
+                <!-- Вкладка Общение -->
                 <div id="chat" class="tab-content">
-                    <!-- ... существующий контент ... -->
+                    <h3>Общение</h3>
+                    <div class="chat-container">
+                        <div class="chat-list">
+                            <div class="chat-search">
+                                <input type="text" placeholder="Поиск чатов..." class="form-control">
+                            </div>
+                            <div class="chats">
+                                <!-- Список чатов будет загружен через JavaScript -->
+                            </div>
+                        </div>
+                        <div class="chat-window">
+                            <div class="chat-placeholder">
+                                <p>Выберите чат для начала общения</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

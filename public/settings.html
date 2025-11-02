@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки профиля - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Настройки профиля</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#" id="back-to-dashboard">Назад в кабинет</a></li>
+                    <li><a href="#" id="logout">Выйти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <div class="container">
+            <div class="dashboard-header">
+                <h2>Настройки профиля</h2>
+                <div class="user-info">
+                    <span id="current-user">Загрузка...</span>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <div class="settings-grid">
+                    <!-- Редактирование профиля -->
+                    <div class="setting-card">
+                        <h3>📝 Редактировать профиль</h3>
+                        <p>Измените личную информацию: имя, фамилию, группу, кафедру и т.д.</p>
+                        <button class="btn btn-primary" id="edit-profile-btn">Редактировать профиль</button>
+                    </div>
+
+                    <!-- Смена логина -->
+                    <div class="setting-card">
+                        <h3>🔐 Сменить логин</h3>
+                        <p>Измените имя пользователя для входа в систему</p>
+                        <button class="btn btn-secondary" id="change-username-btn">Сменить логин</button>
+                    </div>
+
+                    <!-- Смена пароля -->
+                    <div class="setting-card">
+                        <h3>🔑 Сменить пароль</h3>
+                        <p>Установите новый пароль для вашего аккаунта</p>
+                        <button class="btn btn-secondary" id="change-password-btn">Сменить пароль</button>
+                    </div>
+
+                    <!-- Удаление профиля -->
+                    <div class="setting-card danger">
+                        <h3>🗑️ Удалить профиль</h3>
+                        <p>Внимание! Это действие необратимо. Все ваши данные будут удалены.</p>
+                        <button class="btn btn-danger" id="delete-profile-btn">Удалить профиль</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно редактирования профиля -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Редактирование профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="edit-firstname">Имя</label>
+                        <input type="text" id="edit-firstname" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-lastname">Фамилия</label>
+                        <input type="text" id="edit-lastname" class="form-control" required>
+                    </div>
+                    <div id="student-edit-fields">
+                        <div class="form-group">
+                            <label for="edit-group">Группа</label>
+                            <input type="text" id="edit-group" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-faculty">Факультет</label>
+                            <input type="text" id="edit-faculty" class="form-control">
+                        </div>
+                    </div>
+                    <div id="teacher-edit-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="edit-department">Кафедра</label>
+                            <input type="text" id="edit-department" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-position">Должность</label>
+                            <input type="text" id="edit-position" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены логина -->
+    <div id="change-username-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена логина</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="username-change-form">
+                    <div class="form-group">
+                        <label for="new-username">Новый логин</label>
+                        <input type="text" id="new-username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username-password">Текущий пароль</label>
+                        <input type="password" id="username-password" class="form-control" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить логин</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена пароля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="password-change-form">
+                    <div class="form-group">
+                        <label for="current-password">Текущий пароль</label>
+                        <input type="password" id="current-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Новый пароль (не менее 10 символов)</label>
+                        <input type="password" id="new-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Подтвердите новый пароль</label>
+                        <input type="password" id="confirm-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить пароль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно удаления профиля -->
+    <div id="delete-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Удаление профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="warning-message">
+                    <h4>⚠️ Внимание! Это действие необратимо!</h4>
+                    <p>Все ваши данные, включая курсы, лабораторные работы и оценки, будут безвозвратно удалены.</p>
+                </div>
+                <form id="profile-delete-form">
+                    <div class="form-group">
+                        <label for="delete-password">Пароль для подтверждения</label>
+                        <input type="password" id="delete-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="delete-confirmation">Введите "УДАЛИТЬ" для подтверждения</label>
+                        <input type="text" id="delete-confirmation" class="form-control" required 
+                               pattern="УДАЛИТЬ" placeholder="УДАЛИТЬ">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Удалить профиль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>
