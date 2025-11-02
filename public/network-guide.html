@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступ с других устройств - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Инструкция по доступу с других устройств</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="form-container">
+                <h2>Как получить доступ с других устройств</h2>
+                
+                <div class="guide-steps">
+                    <h3>Шаг 1: Запустите сервер для публичного доступа</h3>
+                    <pre><code>npm run start-public</code></pre>
+                    
+                    <h3>Шаг 2: Найдите IP адрес вашего компьютера</h3>
+                    <p>В консоли сервера будет показан IP адрес, например: <code>http://192.168.1.100:3000</code></p>
+                    
+                    <h3>Шаг 3: Откройте сайт на других устройствах</h3>
+                    <p>На других устройствах в той же сети откройте браузер и перейдите по адресу:</p>
+                    <pre><code>http://ВАШ-IP:3000</code></pre>
+                    
+                    <h3>Пример:</h3>
+                    <pre><code>http://192.168.1.100:3000</code></pre>
+                    
+                    <div class="warning">
+                        <h4>⚠️ Важно:</h4>
+                        <ul>
+                            <li>Все устройства должны быть в одной сети Wi-Fi</li>
+                            <li>Брандмауэр может блокировать доступ - разрешите подключение</li>
+                            <li>Данные сохраняются в базе данных на сервере</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="current-connection">
+                    <h3>Текущее подключение:</h3>
+                    <p><strong>Ваш IP:</strong> <span id="current-ip">Определяется...</span></p>
+                    <p><strong>Статус:</strong> <span id="connection-status">Проверяется...</span></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Показываем текущий IP и статус подключения
+        document.getElementById('current-ip').textContent = window.location.hostname;
+        
+        // Проверяем доступность API
+        fetch('/api/user')
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('connection-status').textContent = '✅ Подключение установлено';
+                    document.getElementById('connection-status').style.color = 'green';
+                } else {
+                    document.getElementById('connection-status').textContent = '❌ Проблемы с подключением';
+                    document.getElementById('connection-status').style.color = 'red';
+                }
+            })
+            .catch(error => {
+                document.getElementById('connection-status').textContent = '❌ Ошибка подключения: ' + error.message;
+                document.getElementById('connection-status').style.color = 'red';
+            });
+    </script>
+
+    <style>
+        .guide-steps {
+            text-align: left;
+        }
+        .guide-steps h3 {
+            color: var(--primary-color);
+            margin-top: 1.5rem;
+        }
+        .guide-steps pre {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .current-connection {
+            background: #e8f5e8;
+            border: 1px solid #27ae60;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    </style>
+</body>
+</html>
