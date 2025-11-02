@@ -33,16 +33,15 @@ global.API = {
 
 // Настройка почтового отправления для Render (используем переменные окружения)
 const createTransporter = () => {
-  // Для Render используем переменные окружения
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASS;
   
   if (!emailUser || !emailPass) {
-    console.log('⚠️  Email переменные не настроены. Режим разработки.');
-    // В режиме разработки выводим код в консоль
+    console.log('⚠️  Email переменные не настроены. Коды будут выводиться в консоль.');
     return null;
   }
   
+  console.log('✅ Email настроен, отправка писем включена');
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
