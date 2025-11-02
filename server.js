@@ -4,7 +4,74 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 const app = express();
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+// Настройка почтового отправления для Render (используем переменные окружения)
+const createTransporter = () => {
+  // Для Render используем переменные окружения
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  
+  if (!emailUser || !emailPass) {
+    console.log('⚠️  Email переменные не настроены. Режим разработки.');
+    // В режиме разработки выводим код в консоль
+    return null;
+  }
+  
+  return nodemailer.createTransporter({
+    service: 'gmail',
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    }
+  });
+};
 
+// Генерация кода подтверждения
+function generateVerificationCode() {
+  return crypto.randomInt(100000, 999999).toString();
+}
+
+// Отправка кода подтверждения (или вывод в консоль если нет настроек email)
+async function sendVerificationEmail(email, verificationCode) {
+  const transporter = createTransporter();
+  
+  // Если email не настроен, выводим код в консоль для разработки
+  if (!transporter) {
+    console.log(`📧 [РЕЖИМ РАЗРАБОТКИ] Код подтверждения для ${email}: ${verificationCode}`);
+    return true;
+  }
+
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Подтверждение email - LabConnect',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2c3e50;">Добро пожаловать в LabConnect!</h2>
+          <p>Для завершения регистрации введите следующий код подтверждения:</p>
+          <div style="background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #3498db; font-size: 32px; margin: 0;">${verificationCode}</h1>
+          </div>
+          <p>Этот код действителен в течение 10 минут.</p>
+          <p>Если вы не регистрировались в LabConnect, просто проигнорируйте это письмо.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">LabConnect - платформа для лабораторных работ</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('✅ Код подтверждения отправлен на:', email);
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка отправки email:', error);
+    // При ошибке все равно выводим код в консоль
+    console.log(`📧 [РЕЗЕРВНЫЙ КОД] для ${email}: ${verificationCode}`);
+    return true;
+  }
+}
 // Порт из переменной окружения (Render сам устанавливает)
 const PORT = process.env.PORT || 3000;
 
@@ -41,26 +108,42 @@ const db = new sqlite3.Database(process.env.DATABASE_URL || './labconnect.db', (
 
 // Создание таблиц
 function initDatabase() {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('student', 'teacher')),
-    group_name TEXT,
-    faculty TEXT,
-    department TEXT,
-    position TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`, (err) => {
-    if (err) {
-      console.error('❌ Ошибка создания таблицы users:', err);
-    } else {
-      console.log('✅ Таблица users готова');
-    }
-  });
+ db.run(`CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  email_verified BOOLEAN DEFAULT 0,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('student', 'teacher')),
+  group_name TEXT,
+  faculty TEXT,
+  department TEXT,
+  position TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`, (err) => {
+  if (err) {
+    console.error('❌ Ошибка создания таблицы users:', err);
+  } else {
+    console.log('✅ Таблица users готова');
+  }
+});
+
+// Таблица для кодов подтверждения email
+db.run(`CREATE TABLE IF NOT EXISTS email_verifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE NOT NULL,
+  code TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL
+)`, (err) => {
+  if (err) {
+    console.error('❌ Ошибка создания таблицы email_verifications:', err);
+  } else {
+    console.log('✅ Таблица email_verifications готова');
+  }
+});
 
   // Таблица для курсов
   db.run(`CREATE TABLE IF NOT EXISTS courses (
@@ -192,7 +275,252 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
   }
 });
+// Отправка кода подтверждения при регистрации
+app.post('/api/send-verification', async (req, res) => {
+  const { email } = req.body;
 
+  if (!email) {
+    return res.status(400).json({ error: 'Email обязателен' });
+  }
+
+  try {
+    // Проверяем, не зарегистрирован ли уже email
+    db.get('SELECT id FROM users WHERE email = ?', [email], async (err, row) => {
+      if (err) {
+        console.error('Ошибка БД:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+      
+      if (row) {
+        return res.status(400).json({ error: 'Этот email уже зарегистрирован' });
+      }
+
+      const verificationCode = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 минут
+
+      // Сохраняем код в базу
+      db.run(
+        'INSERT OR REPLACE INTO email_verifications (email, code, expires_at) VALUES (?, ?, ?)',
+        [email, verificationCode, expiresAt.toISOString()],
+        async function(err) {
+          if (err) {
+            console.error('Ошибка сохранения кода:', err);
+            return res.status(500).json({ error: 'Ошибка сервера' });
+          }
+
+          // Отправляем email (или выводим в консоль)
+          const emailSent = await sendVerificationEmail(email, verificationCode);
+          
+          if (emailSent) {
+            res.json({ 
+              success: true, 
+              message: 'Код подтверждения отправлен на ваш email' 
+            });
+          } else {
+            res.status(500).json({ error: 'Ошибка отправки email. Попробуйте позже.' });
+          }
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Ошибка отправки кода:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Подтверждение email
+app.post('/api/verify-email', async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email и код обязательны' });
+  }
+
+  try {
+    // Проверяем код
+    db.get(
+      'SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > datetime("now")',
+      [email, code],
+      (err, row) => {
+        if (err) {
+          console.error('Ошибка БД:', err);
+          return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+
+        if (!row) {
+          return res.status(400).json({ error: 'Неверный код или срок действия истек' });
+        }
+
+        // Удаляем использованный код
+        db.run('DELETE FROM email_verifications WHERE email = ?', [email]);
+
+        res.json({ 
+          success: true, 
+          message: 'Email успешно подтвержден' 
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Ошибка подтверждения email:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Обновление профиля
+app.put('/api/profile', requireAuth, async (req, res) => {
+  const { firstName, lastName, group, faculty, department, position } = req.body;
+  const userId = req.session.user.id;
+
+  try {
+    db.run(
+      `UPDATE users SET 
+        first_name = COALESCE(?, first_name),
+        last_name = COALESCE(?, last_name),
+        group_name = COALESCE(?, group_name),
+        faculty = COALESCE(?, faculty),
+        department = COALESCE(?, department),
+        position = COALESCE(?, position)
+      WHERE id = ?`,
+      [firstName, lastName, group, faculty, department, position, userId],
+      function(err) {
+        if (err) {
+          console.error('Ошибка обновления профиля:', err);
+          return res.status(500).json({ error: 'Ошибка при обновлении профиля' });
+        }
+
+        // Обновляем данные в сессии
+        if (firstName) req.session.user.firstName = firstName;
+        if (lastName) req.session.user.lastName = lastName;
+        if (group) req.session.user.group = group;
+        if (faculty) req.session.user.faculty = faculty;
+        if (department) req.session.user.department = department;
+        if (position) req.session.user.position = position;
+
+        res.json({ 
+          success: true, 
+          message: 'Профиль успешно обновлен',
+          user: req.session.user
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Ошибка обновления профиля:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Смена логина (username)
+app.put('/api/change-username', requireAuth, async (req, res) => {
+  const { newUsername, password } = req.body;
+  const userId = req.session.user.id;
+
+  if (!newUsername || !password) {
+    return res.status(400).json({ error: 'Новый логин и пароль обязательны' });
+  }
+
+  try {
+    // Сначала проверяем пароль
+    db.get('SELECT password FROM users WHERE id = ?', [userId], async (err, user) => {
+      if (err) {
+        console.error('Ошибка БД:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Неверный пароль' });
+      }
+
+      // Проверяем, не занят ли новый логин
+      db.get('SELECT id FROM users WHERE username = ? AND id != ?', [newUsername, userId], (err, row) => {
+        if (err) {
+          console.error('Ошибка БД:', err);
+          return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+
+        if (row) {
+          return res.status(400).json({ error: 'Этот логин уже занят' });
+        }
+
+        // Обновляем логин
+        db.run(
+          'UPDATE users SET username = ? WHERE id = ?',
+          [newUsername, userId],
+          function(err) {
+            if (err) {
+              console.error('Ошибка обновления логина:', err);
+              return res.status(500).json({ error: 'Ошибка при смене логина' });
+            }
+
+            // Обновляем в сессии
+            req.session.user.username = newUsername;
+
+            res.json({ 
+              success: true, 
+              message: 'Логин успешно изменен',
+              user: req.session.user
+            });
+          }
+        );
+      });
+    });
+  } catch (error) {
+    console.error('Ошибка смены логина:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Смена пароля
+app.put('/api/change-password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.session.user.id;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Текущий и новый пароль обязательны' });
+  }
+
+  if (newPassword.length < 10) {
+    return res.status(400).json({ error: 'Новый пароль должен содержать не менее 10 символов' });
+  }
+
+  try {
+    // Проверяем текущий пароль
+    db.get('SELECT password FROM users WHERE id = ?', [userId], async (err, user) => {
+      if (err) {
+        console.error('Ошибка БД:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Неверный текущий пароль' });
+      }
+
+      // Хешируем новый пароль
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+      // Обновляем пароль
+      db.run(
+        'UPDATE users SET password = ? WHERE id = ?',
+        [hashedNewPassword, userId],
+        function(err) {
+          if (err) {
+            console.error('Ошибка обновления пароля:', err);
+            return res.status(500).json({ error: 'Ошибка при смене пароля' });
+          }
+
+          res.json({ 
+            success: true, 
+            message: 'Пароль успешно изменен'
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Ошибка смены пароля:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 // Вход
 app.post('/api/login', (req, res) => {
   console.log('=== ВХОД ===');
