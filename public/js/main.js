@@ -1,16 +1,10 @@
 // js/main.js
 // Основные функции приложения и API
-const getBaseUrl = () => {
-  // Если мы находимся на другом устройстве, используем полный URL
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
-  }
-  return '';
-};
+
 // API функции для взаимодействия с сервером
 const API = {
   async request(endpoint, options = {}) {
-    const baseUrl = getBaseUrl();
+    const baseUrl = window.location.origin;
     const url = `${baseUrl}/api${endpoint}`;
     
     const config = {
@@ -63,6 +57,50 @@ const API = {
 
   async getCurrentUser() {
     return this.request('/user');
+  },
+
+  // Новые функции для управления профилем
+  async updateProfile(profileData) {
+    return this.request('/profile', {
+      method: 'PUT',
+      body: profileData
+    });
+  },
+
+  async changeUsername(newUsername, password) {
+    return this.request('/change-username', {
+      method: 'PUT',
+      body: { newUsername, password }
+    });
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    return this.request('/change-password', {
+      method: 'PUT',
+      body: { currentPassword, newPassword }
+    });
+  },
+
+  async deleteProfile(password) {
+    return this.request('/profile', {
+      method: 'DELETE',
+      body: { password }
+    });
+  },
+
+  // Функции для подтверждения email
+  async sendVerificationCode(email) {
+    return this.request('/send-verification', {
+      method: 'POST',
+      body: { email }
+    });
+  },
+
+  async verifyEmail(email, code) {
+    return this.request('/verify-email', {
+      method: 'POST',
+      body: { email, code }
+    });
   }
 };
 
@@ -124,7 +162,7 @@ function updateUIForUnauthUser() {
     authLinks.innerHTML = `
       <li><a href="index.html">Главная</a></li>
       <li><a href="login.html">Войти</a></li>
-      <li><a href="register.html">Регистрация</a></li>
+      <li><a href="register-verification.html">Регистрация</a></li>
     `;
   }
 }
@@ -229,6 +267,9 @@ function initEventHandlers() {
   if (loginForm) {
     loginForm.addEventListener('submit', handleLogin);
   }
+
+  // Инициализация модальных окон управления профилем
+  initProfileModals();
 }
 
 async function handleRegister(e) {
@@ -291,6 +332,220 @@ async function handleLogin(e) {
       window.location.href = result.user.role === 'teacher' ? 
         'teacher-dashboard.html' : 'student-dashboard.html';
     }, 1000);
+    
+  } catch (error) {
+    showAlert(error.message, 'error');
+  }
+}
+
+// Функции для управления профилем
+function initProfileModals() {
+  // Модальное окно редактирования профиля
+  const editProfileBtn = document.getElementById('edit-profile');
+  if (editProfileBtn) {
+    editProfileBtn.addEventListener('click', openEditProfileModal);
+  }
+
+  // Модальное окно смены логина
+  const changeUsernameBtn = document.getElementById('change-username-btn');
+  if (changeUsernameBtn) {
+    changeUsernameBtn.addEventListener('click', openChangeUsernameModal);
+  }
+
+  // Модальное окно смены пароля
+  const changePasswordBtn = document.getElementById('change-password-btn');
+  if (changePasswordBtn) {
+    changePasswordBtn.addEventListener('click', openChangePasswordModal);
+  }
+
+  // Модальное окно удаления профиля
+  const deleteProfileBtn = document.getElementById('delete-profile-btn');
+  if (deleteProfileBtn) {
+    deleteProfileBtn.addEventListener('click', openDeleteProfileModal);
+  }
+
+  // Обработчики форм
+  const profileEditForm = document.getElementById('profile-edit-form');
+  if (profileEditForm) {
+    profileEditForm.addEventListener('submit', handleProfileUpdate);
+  }
+
+  const usernameChangeForm = document.getElementById('username-change-form');
+  if (usernameChangeForm) {
+    usernameChangeForm.addEventListener('submit', handleUsernameChange);
+  }
+
+  const passwordChangeForm = document.getElementById('password-change-form');
+  if (passwordChangeForm) {
+    passwordChangeForm.addEventListener('submit', handlePasswordChange);
+  }
+
+  const profileDeleteForm = document.getElementById('profile-delete-form');
+  if (profileDeleteForm) {
+    profileDeleteForm.addEventListener('submit', handleProfileDelete);
+  }
+
+  // Закрытие модальных окон
+  document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      this.closest('.modal').style.display = 'none';
+    });
+  });
+
+  // Закрытие при клике вне окна
+  window.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+      e.target.style.display = 'none';
+    }
+  });
+}
+
+function openEditProfileModal() {
+  const modal = document.getElementById('edit-profile-modal');
+  const user = getCurrentUserFromPage();
+  
+  if (user) {
+    document.getElementById('edit-firstname').value = user.firstName || '';
+    document.getElementById('edit-lastname').value = user.lastName || '';
+    document.getElementById('edit-group').value = user.group || '';
+    document.getElementById('edit-faculty').value = user.faculty || '';
+    document.getElementById('edit-department').value = user.department || '';
+    document.getElementById('edit-position').value = user.position || '';
+  }
+  
+  modal.style.display = 'block';
+}
+
+function openChangeUsernameModal() {
+  document.getElementById('change-username-modal').style.display = 'block';
+}
+
+function openChangePasswordModal() {
+  document.getElementById('change-password-modal').style.display = 'block';
+}
+
+function openDeleteProfileModal() {
+  document.getElementById('delete-profile-modal').style.display = 'block';
+}
+
+function getCurrentUserFromPage() {
+  // Получаем данные пользователя со страницы
+  if (document.getElementById('profile-firstname')) {
+    return {
+      firstName: document.getElementById('profile-firstname').textContent,
+      lastName: document.getElementById('profile-lastname').textContent,
+      group: document.getElementById('profile-group').textContent,
+      faculty: document.getElementById('profile-faculty').textContent,
+      department: document.getElementById('teacher-department-detail')?.textContent || '',
+      position: document.getElementById('teacher-position')?.textContent || ''
+    };
+  }
+  return null;
+}
+
+async function handleProfileUpdate(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const profileData = {
+    firstName: formData.get('edit-firstname'),
+    lastName: formData.get('edit-lastname'),
+    group: formData.get('edit-group'),
+    faculty: formData.get('edit-faculty'),
+    department: formData.get('edit-department'),
+    position: formData.get('edit-position')
+  };
+
+  try {
+    const result = await API.updateProfile(profileData);
+    showAlert(result.message, 'success');
+    
+    // Обновляем данные на странице
+    updateDashboardUserInfo(result.user);
+    
+    // Закрываем модальное окно
+    document.getElementById('edit-profile-modal').style.display = 'none';
+    
+  } catch (error) {
+    showAlert(error.message, 'error');
+  }
+}
+
+async function handleUsernameChange(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const newUsername = formData.get('new-username');
+  const password = formData.get('username-password');
+
+  try {
+    const result = await API.changeUsername(newUsername, password);
+    showAlert(result.message, 'success');
+    
+    // Обновляем данные на странице
+    updateDashboardUserInfo(result.user);
+    
+    // Закрываем модальное окно
+    document.getElementById('change-username-modal').style.display = 'none';
+    
+  } catch (error) {
+    showAlert(error.message, 'error');
+  }
+}
+
+async function handlePasswordChange(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const currentPassword = formData.get('current-password');
+  const newPassword = formData.get('new-password');
+  const confirmPassword = formData.get('confirm-password');
+
+  if (newPassword !== confirmPassword) {
+    showAlert('Новые пароли не совпадают', 'error');
+    return;
+  }
+
+  if (newPassword.length < 10) {
+    showAlert('Новый пароль должен содержать не менее 10 символов', 'error');
+    return;
+  }
+
+  try {
+    const result = await API.changePassword(currentPassword, newPassword);
+    showAlert(result.message, 'success');
+    
+    // Закрываем модальное окно
+    document.getElementById('change-password-modal').style.display = 'none';
+    
+    // Очищаем форму
+    e.target.reset();
+    
+  } catch (error) {
+    showAlert(error.message, 'error');
+  }
+}
+
+async function handleProfileDelete(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const password = formData.get('delete-password');
+  const confirmation = formData.get('delete-confirmation');
+
+  if (confirmation !== 'УДАЛИТЬ') {
+    showAlert('Пожалуйста, введите слово "УДАЛИТЬ" для подтверждения', 'error');
+    return;
+  }
+
+  try {
+    const result = await API.deleteProfile(password);
+    showAlert(result.message, 'success');
+    
+    // Перенаправляем на главную страницу
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 2000);
     
   } catch (error) {
     showAlert(error.message, 'error');

@@ -1,16 +1,19 @@
 // js/student-dashboard.js
 // Функциональность личного кабинета студента
 
+// js/student-dashboard.js
+// Функциональность личного кабинета студента
+
 document.addEventListener('DOMContentLoaded', function() {
     initStudentDashboard();
 });
 
-function initStudentDashboard() {
+async function initStudentDashboard() {
     // Инициализация вкладок
     initTabs();
     
     // Загрузка данных студента
-    loadStudentData();
+    await loadStudentData();
     
     // Загрузка заданий
     loadStudentTasks();
@@ -18,8 +21,7 @@ function initStudentDashboard() {
     // Инициализация календаря
     initCalendar();
     
-    // Инициализация модальных окон
-    initModals();
+    // Инициализация модальных окон уже в main.js
 }
 
 function initTabs() {
@@ -48,26 +50,28 @@ function initTabs() {
 }
 
 async function loadStudentData() {
-  try {
-    const response = await API.getCurrentUser();
-    if (response.user) {
-      const user = response.user;
-      
-      // Заполнение данных в профиле реальными данными
-      document.getElementById('student-name').textContent = user.firstName + ' ' + user.lastName;
-      document.getElementById('user-group').textContent = 'Группа: ' + (user.group || 'Не указана');
-      document.getElementById('profile-firstname').textContent = user.firstName;
-      document.getElementById('profile-lastname').textContent = user.lastName;
-      document.getElementById('profile-email').textContent = user.email;
-      document.getElementById('profile-group').textContent = user.group || 'Не указана';
-      document.getElementById('profile-faculty').textContent = user.faculty || 'Не указан';
+    try {
+        const response = await API.getCurrentUser();
+        if (response.user) {
+            const user = response.user;
+            
+            // Заполнение данных в профиле реальными данными
+            document.getElementById('student-name').textContent = user.firstName + ' ' + user.lastName;
+            document.getElementById('user-group').textContent = 'Группа: ' + (user.group || 'Не указана');
+            document.getElementById('profile-firstname').textContent = user.firstName;
+            document.getElementById('profile-lastname').textContent = user.lastName;
+            document.getElementById('profile-email').textContent = user.email;
+            document.getElementById('profile-group').textContent = user.group || 'Не указана';
+            document.getElementById('profile-faculty').textContent = user.faculty || 'Не указан';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки данных студента:', error);
+        // Если не авторизован, перенаправляем на вход
+        window.location.href = 'login.html';
     }
-  } catch (error) {
-    console.error('Ошибка загрузки данных студента:', error);
-    // Если не авторизован, перенаправляем на вход
-    window.location.href = 'login.html';
-  }
 }
+
+// Остальные функции остаются без изменений...
 
 function loadStudentTasks() {
     // В реальном приложении здесь будет запрос к API

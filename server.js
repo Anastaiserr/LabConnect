@@ -3,9 +3,34 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
-const app = express();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const app = express();
+
+// Порт из переменной окружения (Render сам устанавливает)
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Настройка сессий для продакшена
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'labconnect-render-secret-key-2024',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // На Render будет false
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 дней
+  }
+}));
+
+// Для совместимости с вашим api.js
+global.API = {
+  // Это нужно для совместимости с фронтендом
+};
+
 // Настройка почтового отправления для Render (используем переменные окружения)
 const createTransporter = () => {
   // Для Render используем переменные окружения
@@ -72,29 +97,6 @@ async function sendVerificationEmail(email, verificationCode) {
     return true;
   }
 }
-// Порт из переменной окружения (Render сам устанавливает)
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Настройка сессий для продакшена
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'labconnect-render-secret-key-2024',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: false, // На Render будет false
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 дней
-  }
-}));
-
-// Для совместимости с вашим api.js
-global.API = {
-  // Это нужно для совместимости с фронтендом
-};
 
 // Инициализация базы данных
 const db = new sqlite3.Database(process.env.DATABASE_URL || './labconnect.db', (err) => {
@@ -108,42 +110,43 @@ const db = new sqlite3.Database(process.env.DATABASE_URL || './labconnect.db', (
 
 // Создание таблиц
 function initDatabase() {
- db.run(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  email_verified BOOLEAN DEFAULT 0,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('student', 'teacher')),
-  group_name TEXT,
-  faculty TEXT,
-  department TEXT,
-  position TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`, (err) => {
-  if (err) {
-    console.error('❌ Ошибка создания таблицы users:', err);
-  } else {
-    console.log('✅ Таблица users готова');
-  }
-});
+  // Обновляем таблицу users - добавляем поле email_verified
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    email_verified BOOLEAN DEFAULT 0,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('student', 'teacher')),
+    group_name TEXT,
+    faculty TEXT,
+    department TEXT,
+    position TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Ошибка создания таблицы users:', err);
+    } else {
+      console.log('✅ Таблица users готова');
+    }
+  });
 
-// Таблица для кодов подтверждения email
-db.run(`CREATE TABLE IF NOT EXISTS email_verifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  code TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  expires_at DATETIME NOT NULL
-)`, (err) => {
-  if (err) {
-    console.error('❌ Ошибка создания таблицы email_verifications:', err);
-  } else {
-    console.log('✅ Таблица email_verifications готова');
-  }
-});
+  // Таблица для кодов подтверждения email
+  db.run(`CREATE TABLE IF NOT EXISTS email_verifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    code TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Ошибка создания таблицы email_verifications:', err);
+    } else {
+      console.log('✅ Таблица email_verifications готова');
+    }
+  });
 
   // Таблица для курсов
   db.run(`CREATE TABLE IF NOT EXISTS courses (
@@ -219,62 +222,6 @@ function requireAuth(req, res, next) {
 
 // API маршруты
 
-// Регистрация
-app.post('/api/register', async (req, res) => {
-  console.log('=== РЕГИСТРАЦИЯ ===');
-  
-  const { username, password, email, firstName, lastName, role, group, faculty, department, position } = req.body;
-
-  // Валидация
-  if (!username || !password || !email || !firstName || !lastName || !role) {
-    return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
-  }
-
-  if (password.length < 10) {
-    return res.status(400).json({ error: 'Пароль должен содержать не менее 10 символов' });
-  }
-
-  try {
-    // Проверка существования пользователя
-    db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], async (err, row) => {
-      if (err) {
-        console.error('Ошибка БД:', err);
-        return res.status(500).json({ error: 'Ошибка базы данных' });
-      }
-      
-      if (row) {
-        return res.status(400).json({ error: 'Пользователь с таким именем или email уже существует' });
-      }
-
-      // Хеширование пароля
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Создание пользователя
-      db.run(
-        `INSERT INTO users (username, password, email, first_name, last_name, role, group_name, faculty, department, position) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [username, hashedPassword, email, firstName, lastName, role, group || null, faculty || null, department || null, position || null],
-        function(err) {
-          if (err) {
-            console.error('Ошибка создания пользователя:', err);
-            return res.status(500).json({ error: 'Ошибка при создании пользователя: ' + err.message });
-          }
-          
-          console.log('✅ Пользователь создан с ID:', this.lastID);
-          
-          res.json({ 
-            success: true, 
-            message: 'Пользователь успешно зарегистрирован. Теперь вы можете войти.',
-            userId: this.lastID
-          });
-        }
-      );
-    });
-  } catch (error) {
-    console.error('Ошибка регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
-  }
-});
 // Отправка кода подтверждения при регистрации
 app.post('/api/send-verification', async (req, res) => {
   const { email } = req.body;
@@ -363,6 +310,165 @@ app.post('/api/verify-email', async (req, res) => {
   } catch (error) {
     console.error('Ошибка подтверждения email:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Регистрация (ОБНОВЛЕННАЯ ВЕРСИЯ - с обязательным подтверждением email)
+app.post('/api/register', async (req, res) => {
+  console.log('=== РЕГИСТРАЦИЯ ===');
+  
+  const { username, password, email, firstName, lastName, role, group, faculty, department, position, verificationCode } = req.body;
+
+  // Валидация
+  if (!username || !password || !email || !firstName || !lastName || !role || !verificationCode) {
+    return res.status(400).json({ error: 'Все поля, включая код подтверждения, обязательны' });
+  }
+
+  if (password.length < 10) {
+    return res.status(400).json({ error: 'Пароль должен содержать не менее 10 символов' });
+  }
+
+  try {
+    // Сначала проверяем код подтверждения
+    db.get(
+      'SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > datetime("now")',
+      [email, verificationCode],
+      async (err, verificationRow) => {
+        if (err) {
+          console.error('Ошибка БД при проверке кода:', err);
+          return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+
+        if (!verificationRow) {
+          return res.status(400).json({ error: 'Неверный код подтверждения или срок действия истек' });
+        }
+
+        // Проверяем, не зарегистрирован ли уже пользователь
+        db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], async (err, row) => {
+          if (err) {
+            console.error('Ошибка БД:', err);
+            return res.status(500).json({ error: 'Ошибка базы данных' });
+          }
+          
+          if (row) {
+            return res.status(400).json({ error: 'Пользователь с таким именем или email уже существует' });
+          }
+
+          // Хеширование пароля
+          const hashedPassword = await bcrypt.hash(password, 10);
+
+          // Создание пользователя с подтвержденным email
+          db.run(
+            `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, group_name, faculty, department, position) 
+             VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+            [username, hashedPassword, email, firstName, lastName, role, group || null, faculty || null, department || null, position || null],
+            function(err) {
+              if (err) {
+                console.error('Ошибка создания пользователя:', err);
+                return res.status(500).json({ error: 'Ошибка при создании пользователя: ' + err.message });
+              }
+              
+              // Удаляем использованный код подтверждения
+              db.run('DELETE FROM email_verifications WHERE email = ?', [email]);
+              
+              console.log('✅ Пользователь создан с ID:', this.lastID);
+              
+              res.json({ 
+                success: true, 
+                message: 'Пользователь успешно зарегистрирован и подтвержден. Теперь вы можете войти.',
+                userId: this.lastID
+              });
+            }
+          );
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Ошибка регистрации:', error);
+    res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
+  }
+});
+
+// Вход
+app.post('/api/login', (req, res) => {
+  console.log('=== ВХОД ===');
+  
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
+  }
+
+  db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+    if (err) {
+      console.error('Ошибка БД:', err);
+      return res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+    
+    if (!user) {
+      console.log('❌ Пользователь не найден:', username);
+      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    }
+
+    console.log('Найден пользователь:', user.username, 'ID:', user.id);
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      console.log('❌ Неверный пароль для пользователя:', username);
+      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    }
+
+    // Проверяем, подтвержден ли email
+    if (!user.email_verified) {
+      console.log('❌ Email не подтвержден для пользователя:', username);
+      return res.status(401).json({ error: 'Email не подтвержден. Проверьте вашу почту.' });
+    }
+
+    // Сохраняем пользователя в сессии
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+      group: user.group_name,
+      faculty: user.faculty,
+      department: user.department,
+      position: user.position
+    };
+
+    console.log('✅ Пользователь вошел:', req.session.user);
+    
+    res.json({ 
+      success: true, 
+      message: 'Вход выполнен успешно',
+      user: req.session.user
+    });
+  });
+});
+
+// Выход
+app.post('/api/logout', (req, res) => {
+  console.log('=== ВЫХОД ===');
+  
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Ошибка выхода:', err);
+      return res.status(500).json({ error: 'Ошибка при выходе' });
+    }
+    
+    console.log('✅ Сессия уничтожена');
+    res.json({ success: true, message: 'Выход выполнен успешно' });
+  });
+});
+
+// Получение текущего пользователя
+app.get('/api/user', (req, res) => {
+  if (req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json({ error: 'Пользователь не аутентифицирован' });
   }
 });
 
@@ -521,80 +627,62 @@ app.put('/api/change-password', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
-// Вход
-app.post('/api/login', (req, res) => {
-  console.log('=== ВХОД ===');
-  
-  const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
+// Удаление профиля
+app.delete('/api/profile', requireAuth, async (req, res) => {
+  const { password } = req.body;
+  const userId = req.session.user.id;
+
+  if (!password) {
+    return res.status(400).json({ error: 'Пароль обязателен для удаления профиля' });
   }
 
-  db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
-    if (err) {
-      console.error('Ошибка БД:', err);
-      return res.status(500).json({ error: 'Ошибка базы данных' });
-    }
-    
-    if (!user) {
-      console.log('❌ Пользователь не найден:', username);
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
+  try {
+    // Проверяем пароль
+    db.get('SELECT password FROM users WHERE id = ?', [userId], async (err, user) => {
+      if (err) {
+        console.error('Ошибка БД:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
 
-    console.log('Найден пользователь:', user.username, 'ID:', user.id);
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Неверный пароль' });
+      }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      console.log('❌ Неверный пароль для пользователя:', username);
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
+      // Удаляем пользователя и все связанные данные
+      db.serialize(() => {
+        // Удаляем submissions пользователя
+        db.run('DELETE FROM submissions WHERE student_id = ?', [userId]);
+        
+        // Если пользователь - преподаватель, удаляем его курсы и labs
+        db.run('DELETE FROM labs WHERE course_id IN (SELECT id FROM courses WHERE teacher_id = ?)', [userId]);
+        db.run('DELETE FROM courses WHERE teacher_id = ?', [userId]);
+        
+        // Удаляем самого пользователя
+        db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+          if (err) {
+            console.error('Ошибка удаления пользователя:', err);
+            return res.status(500).json({ error: 'Ошибка при удалении профиля' });
+          }
 
-    // Сохраняем пользователя в сессии
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      role: user.role,
-      group: user.group_name,
-      faculty: user.faculty,
-      department: user.department,
-      position: user.position
-    };
+          // Уничтожаем сессию
+          req.session.destroy((err) => {
+            if (err) {
+              console.error('Ошибка уничтожения сессии:', err);
+            }
+          });
 
-    console.log('✅ Пользователь вошел:', req.session.user);
-    
-    res.json({ 
-      success: true, 
-      message: 'Вход выполнен успешно',
-      user: req.session.user
+          res.json({ 
+            success: true, 
+            message: 'Профиль успешно удален' 
+          });
+        });
+      });
     });
-  });
-});
-
-// Выход
-app.post('/api/logout', (req, res) => {
-  console.log('=== ВЫХОД ===');
-  
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Ошибка выхода:', err);
-      return res.status(500).json({ error: 'Ошибка при выходе' });
-    }
-    
-    console.log('✅ Сессия уничтожена');
-    res.json({ success: true, message: 'Выход выполнен успешно' });
-  });
-});
-
-// Получение текущего пользователя
-app.get('/api/user', (req, res) => {
-  if (req.session.user) {
-    res.json({ user: req.session.user });
-  } else {
-    res.status(401).json({ error: 'Пользователь не аутентифицирован' });
+  } catch (error) {
+    console.error('Ошибка удаления профиля:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 

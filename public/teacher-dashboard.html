@@ -1,4 +1,3 @@
-<!-- teacher-dashboard.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -47,12 +46,19 @@
             <div class="dashboard-content">
                 <!-- Вкладка Профиль -->
                 <div id="profile" class="tab-content active">
-                    <h3>Мой профиль</h3>
+                    <div class="tab-header">
+                        <h3>Мой профиль</h3>
+                        <div class="profile-actions">
+                            <button class="btn btn-secondary" id="edit-profile">Редактировать профиль</button>
+                            <button class="btn btn-secondary" id="change-username-btn">Сменить логин</button>
+                            <button class="btn btn-secondary" id="change-password-btn">Сменить пароль</button>
+                            <button class="btn btn-danger" id="delete-profile-btn">Удалить профиль</button>
+                        </div>
+                    </div>
                     <div class="profile-info">
                         <div class="profile-card">
                             <div class="profile-header">
                                 <h4>Личная информация</h4>
-                                <button class="btn btn-secondary" id="edit-teacher-profile">Редактировать</button>
                             </div>
                             <div class="profile-details">
                                 <div class="detail-item">
@@ -111,6 +117,7 @@
                     <div class="courses-management">
                         <div class="courses-list">
                             <!-- Список курсов будет загружен через JavaScript -->
+                            <div class="loading">Загрузка курсов...</div>
                         </div>
                     </div>
                 </div>
@@ -126,6 +133,7 @@
                             <h4>Существующие лабораторные работы</h4>
                             <div class="labs-list">
                                 <!-- Список лабораторных работ будет загружен через JavaScript -->
+                                <div class="loading">Загрузка лабораторных работ...</div>
                             </div>
                         </div>
                     </div>
@@ -147,6 +155,7 @@
                     <div class="works-to-check">
                         <div class="works-list">
                             <!-- Работы на проверку будут загружены через JavaScript -->
+                            <div class="loading">Загрузка работ для проверки...</div>
                         </div>
                     </div>
                 </div>
@@ -172,6 +181,7 @@
                         </div>
                         <div class="statement-preview">
                             <!-- Предпросмотр ведомости будет загружен через JavaScript -->
+                            <div class="placeholder">Выберите курс и группу для формирования ведомости</div>
                         </div>
                     </div>
                 </div>
@@ -184,6 +194,7 @@
                             <h4>Группы и студенты</h4>
                             <div class="groups-list">
                                 <!-- Список групп и студентов будет загружен через JavaScript -->
+                                <div class="loading">Загрузка чатов...</div>
                             </div>
                         </div>
                         <div class="chat-window">
@@ -202,12 +213,14 @@
                             <h4>Критерии оценки</h4>
                             <div class="grading-criteria">
                                 <!-- Настройки критериев оценки будут загружены через JavaScript -->
+                                <div class="loading">Загрузка критериев оценки...</div>
                             </div>
                         </div>
                         <div class="setting-section">
                             <h4>Шаблоны заданий</h4>
                             <div class="task-templates">
                                 <!-- Шаблоны заданий будут загружены через JavaScript -->
+                                <div class="loading">Загрузка шаблонов заданий...</div>
                             </div>
                         </div>
                     </div>
@@ -215,6 +228,127 @@
             </div>
         </div>
     </main>
+
+    <!-- Модальное окно редактирования профиля -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Редактирование профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="edit-firstname">Имя</label>
+                        <input type="text" id="edit-firstname" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-lastname">Фамилия</label>
+                        <input type="text" id="edit-lastname" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-department">Кафедра</label>
+                        <input type="text" id="edit-department" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-position">Должность</label>
+                        <input type="text" id="edit-position" class="form-control">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены логина -->
+    <div id="change-username-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена логина</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="username-change-form">
+                    <div class="form-group">
+                        <label for="new-username">Новый логин</label>
+                        <input type="text" id="new-username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username-password">Текущий пароль</label>
+                        <input type="password" id="username-password" class="form-control" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить логин</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена пароля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="password-change-form">
+                    <div class="form-group">
+                        <label for="current-password">Текущий пароль</label>
+                        <input type="password" id="current-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Новый пароль</label>
+                        <input type="password" id="new-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Подтвердите новый пароль</label>
+                        <input type="password" id="confirm-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить пароль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно удаления профиля -->
+    <div id="delete-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Удаление профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="warning-message">
+                    <h4>⚠️ Внимание! Это действие необратимо!</h4>
+                    <p>Все ваши данные, включая курсы, лабораторные работы и оценки, будут безвозвратно удалены.</p>
+                </div>
+                <form id="profile-delete-form">
+                    <div class="form-group">
+                        <label for="delete-password">Пароль для подтверждения</label>
+                        <input type="password" id="delete-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="delete-confirmation">Введите "УДАЛИТЬ" для подтверждения</label>
+                        <input type="text" id="delete-confirmation" class="form-control" required 
+                               pattern="УДАЛИТЬ" placeholder="УДАЛИТЬ">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Удалить профиль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Модальное окно создания курса -->
     <div id="create-course-modal" class="modal">
@@ -242,7 +376,7 @@
                         <input type="password" id="course-password" class="form-control">
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-course">Отмена</button>
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
                         <button type="submit" class="btn btn-primary">Создать курс</button>
                     </div>
                 </form>
@@ -286,7 +420,7 @@
                         <input type="number" id="lab-max-score" class="form-control" value="10" min="1" max="100">
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-lab">Отмена</button>
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
                         <button type="submit" class="btn btn-primary">Создать работу</button>
                     </div>
                 </form>
@@ -341,7 +475,6 @@
     </div>
 
     <script src="js/main.js"></script>
-    <script src="js/api.js"></script>
     <script src="js/teacher-dashboard.js"></script>
 </body>
 </html>
