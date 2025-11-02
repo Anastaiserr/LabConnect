@@ -5,16 +5,12 @@ document.addEventListener('DOMContentLoaded', function() {
     initTeacherDashboard();
 });
 
-function initTeacherDashboard() {
+async function initTeacherDashboard() {
     // Инициализация вкладок
     initTeacherTabs();
     
     // Загрузка данных преподавателя
-    loadTeacherData();
-    
-    // Загрузка курсов и заданий
-    loadTeacherCourses();
-    loadWorksToCheck();
+    await loadTeacherData();
     
     // Инициализация модальных окон
     initTeacherModals();
@@ -46,56 +42,138 @@ function initTeacherTabs() {
 }
 
 async function loadTeacherData() {
-  try {
-    const response = await API.getCurrentUser();
-    if (response.user) {
-      const user = response.user;
-      
-      // Заполнение данных в профиле реальными данными
-      document.getElementById('teacher-name').textContent = user.firstName + ' ' + user.lastName;
-      document.getElementById('teacher-department').textContent = 'Кафедра: ' + (user.department || 'Не указана');
-      document.getElementById('teacher-firstname').textContent = user.firstName;
-      document.getElementById('teacher-lastname').textContent = user.lastName;
-      document.getElementById('teacher-email').textContent = user.email;
-      document.getElementById('teacher-department-detail').textContent = user.department || 'Не указана';
-      document.getElementById('teacher-position').textContent = user.position || 'Не указана';
-    }
-  } catch (error) {
-    console.error('Ошибка загрузки данных преподавателя:', error);
-    // Если не авторизован, перенаправляем на вход
-    window.location.href = 'login.html';
-  }
-}
-
-function loadTeacherCourses() {
-    // В реальном приложении здесь будет запрос к API
-    const courses = [
-        {
-            id: 1,
-            name: 'Веб-технологии',
-            discipline: 'Программная инженерия',
-            groups: ['ДИПР6-31', 'ДИПР6-32'],
-            studentCount: 24,
-            activeLabs: 3
-        },
-        {
-            id: 2,
-            name: 'Командный проект по программной инженерии',
-            discipline: 'Программная инженерия',
-            groups: ['ДИПР6-31'],
-            studentCount: 4,
-            activeLabs: 1
+    try {
+        const response = await API.getCurrentUser();
+        if (response.user) {
+            const user = response.user;
+            
+            // Заполнение данных в профиле реальными данными
+            document.getElementById('teacher-name').textContent = user.firstName + ' ' + user.lastName;
+            document.getElementById('teacher-department').textContent = 'Кафедра: ' + (user.department || 'Не указана');
+            document.getElementById('teacher-firstname').textContent = user.firstName;
+            document.getElementById('teacher-lastname').textContent = user.lastName;
+            document.getElementById('teacher-email').textContent = user.email;
+            document.getElementById('teacher-department-detail').textContent = user.department || 'Не указана';
+            document.getElementById('teacher-position').textContent = user.position || 'Не указана';
+            
+            // Сохраняем данные пользователя
+            window.currentTeacher = user;
         }
-    ];
-    
-    displayTeacherCourses(courses);
+    } catch (error) {
+        console.error('Ошибка загрузки данных преподавателя:', error);
+        // Если не авторизован, перенаправляем на вход
+        window.location.href = 'login.html';
+    }
 }
 
+function initTeacherModals() {
+    // Кнопка создания курса
+    const createCourseBtn = document.getElementById('create-course-btn');
+    if (createCourseBtn) {
+        createCourseBtn.addEventListener('click', function() {
+            document.getElementById('create-course-modal').style.display = 'block';
+        });
+    }
+    
+    // Обработчик формы создания курса
+    const courseCreateForm = document.getElementById('course-create-form');
+    if (courseCreateForm) {
+        courseCreateForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            createNewCourse();
+        });
+    }
+    
+    // Закрытие модальных окон
+    document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
+        });
+    });
+    
+    // Закрытие при клике вне окна
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+}
+
+async function loadTeacherTabData(tabId) {
+    switch(tabId) {
+        case 'disciplines':
+            await loadTeacherCourses();
+            break;
+        case 'assign-tasks':
+            await loadTeacherLabs();
+            break;
+        case 'check-works':
+            await loadWorksToCheck();
+            break;
+        case 'statements':
+            loadStatementData();
+            break;
+        case 'settings':
+            loadSettingsData();
+            break;
+        case 'chat':
+            loadTeacherChats();
+            break;
+    }
+}
+
+
+// Загрузка курсов преподавателя
+async function loadTeacherCourses() {
+    try {
+        const coursesList = document.getElementById('courses-list');
+        const loadingElement = document.getElementById('courses-loading');
+        
+        loadingElement.textContent = 'Загрузка курсов...';
+        
+        // Загружаем курсы через API
+        const response = await fetch('/api/teacher/courses', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки курсов');
+        }
+
+        const result = await response.json();
+        
+        if (result.courses && result.courses.length > 0) {
+            displayTeacherCourses(result.courses);
+        } else {
+            coursesList.innerHTML = `
+                <div class="no-courses">
+                    <p>У вас пока нет созданных курсов</p>
+                    <p>Создайте первый курс, нажав кнопку "Создать новый курс"</p>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки курсов:', error);
+        document.getElementById('courses-list').innerHTML = `
+            <div class="error-message">
+                <p>Ошибка загрузки курсов: ${error.message}</p>
+                <button class="btn btn-secondary" onclick="loadTeacherCourses()">Повторить</button>
+            </div>
+        `;
+    }
+}
+
+// Отображение курсов
 function displayTeacherCourses(courses) {
-    const container = document.querySelector('.courses-list');
+    const container = document.getElementById('courses-list');
     
     container.innerHTML = courses.map(course => `
-        <div class="course-card">
+        <div class="course-card" data-course-id="${course.id}">
             <div class="course-header">
                 <h4 class="course-title">${course.name}</h4>
                 <div class="course-actions">
@@ -108,13 +186,161 @@ function displayTeacherCourses(courses) {
                 </div>
             </div>
             <div class="course-meta">
-                <span>Дисциплина: ${course.discipline}</span>
-                <span>Группы: ${course.groups.join(', ')}</span>
-                <span>Студентов: ${course.studentCount}</span>
-                <span>Активных работ: ${course.activeLabs}</span>
+                <span><strong>Дисциплина:</strong> ${course.discipline}</span>
+                ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
+                <span><strong>Создан:</strong> ${formatDate(course.created_at)}</span>
+                ${course.password ? `<span><strong>Пароль доступа:</strong> ${course.password}</span>` : ''}
+            </div>
+            <div class="course-stats">
+                <button class="btn btn-outline btn-sm view-labs" data-course-id="${course.id}">
+                    Лабораторные работы
+                </button>
+                <button class="btn btn-outline btn-sm view-students" data-course-id="${course.id}">
+                    Студенты
+                </button>
             </div>
         </div>
     `).join('');
+    
+    // Добавляем обработчики событий для кнопок
+    addCourseEventHandlers();
+}
+
+// Создание нового курса
+async function createNewCourse() {
+    const form = document.getElementById('course-create-form');
+    const formData = new FormData(form);
+    
+    const courseData = {
+        name: formData.get('course-name'),
+        description: formData.get('course-description'),
+        discipline: formData.get('course-discipline'),
+        password: formData.get('course-password')
+    };
+    
+    // Валидация
+    if (!courseData.name || !courseData.discipline) {
+        showAlert('Название и дисциплина обязательны для заполнения', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/courses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(courseData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка создания курса');
+        }
+
+        const result = await response.json();
+        
+        showAlert(result.message, 'success');
+        document.getElementById('create-course-modal').style.display = 'none';
+        form.reset();
+        
+        // Перезагружаем список курсов
+        await loadTeacherCourses();
+        
+    } catch (error) {
+        console.error('Ошибка создания курса:', error);
+        showAlert('Ошибка создания курса: ' + error.message, 'error');
+    }
+}
+
+// Обработчики событий для кнопок курсов
+function addCourseEventHandlers() {
+    // Кнопка "Редактировать"
+    document.querySelectorAll('.edit-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            editCourse(courseId);
+        });
+    });
+    
+    // Кнопка "Управление"
+    document.querySelectorAll('.manage-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            manageCourse(courseId);
+        });
+    });
+    
+    // Кнопка "Лабораторные работы"
+    document.querySelectorAll('.view-labs').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            viewCourseLabs(courseId);
+        });
+    });
+}
+
+function editCourse(courseId) {
+    showAlert(`Редактирование курса ID: ${courseId}`, 'info');
+    // Здесь можно добавить функциональность редактирования
+}
+
+function manageCourse(courseId) {
+    showAlert(`Управление курсом ID: ${courseId}`, 'info');
+    // Здесь можно добавить функциональность управления
+}
+
+function viewCourseLabs(courseId) {
+    // Переключаемся на вкладку лабораторных работ
+    document.querySelector('[data-tab="assign-tasks"]').click();
+    // Здесь можно добавить фильтрацию по курсу
+}
+
+// Вспомогательные функции
+function formatDate(dateString) {
+    if (!dateString) return 'Не указано';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU');
+}
+
+function showAlert(message, type = 'info') {
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+    
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    
+    alert.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+    
+    const colors = {
+        success: '#27ae60',
+        error: '#e74c3c',
+        warning: '#f39c12',
+        info: '#3498db'
+    };
+    
+    alert.style.backgroundColor = colors[type] || colors.info;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
 }
 
 function loadWorksToCheck() {

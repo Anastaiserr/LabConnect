@@ -40,7 +40,7 @@
                     <li><a href="#statements" class="nav-link" data-tab="statements">Ведомости</a></li>
                     <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
                     <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
-                    <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
+
                 </ul>
             </nav>
 
@@ -121,13 +121,13 @@
                 <!-- Вкладка Дисциплины и Курсы -->
                 <div id="disciplines" class="tab-content">
                     <div class="tab-header">
-                        <h3>Дисциплины и Курсы</h3>
+                        <h3>Мои курсы</h3>
                         <button class="btn btn-primary" id="create-course-btn">Создать новый курс</button>
                     </div>
+    
                     <div class="courses-management">
-                        <div class="courses-list">
-                            <!-- Список курсов будет загружен через JavaScript -->
-                            <div class="loading">Загрузка курсов...</div>
+                        <div class="courses-list" id="courses-list">
+                            <div class="loading" id="courses-loading">Загрузка курсов...</div>
                         </div>
                     </div>
                 </div>
