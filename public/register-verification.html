@@ -174,73 +174,92 @@
         });
 
         // Отправка кода подтверждения (ТОЛЬКО email)
-        sendCodeBtn.addEventListener('click', async function() {
-            const formData = new FormData(document.getElementById('registerStep1Form'));
-            
-            // Сохраняем все данные для второго шага
-            userData = {
-                username: formData.get('username'),
-                password: formData.get('password'),
-                email: formData.get('email'),
-                firstName: formData.get('firstName'),
-                lastName: formData.get('lastName'),
-                role: formData.get('role'),
-                group: formData.get('group'),
-                faculty: formData.get('faculty'),
-                department: formData.get('department'),
-                position: formData.get('position')
-            };
+sendCodeBtn.addEventListener('click', async function() {
+    const formData = new FormData(document.getElementById('registerStep1Form'));
+    
+    // Сохраняем все данные для второго шага
+    userData = {
+        username: formData.get('username'),
+        password: formData.get('password'),
+        email: formData.get('email'),
+        firstName: formData.get('firstName'),
+        lastName: formData.get('lastName'),
+        role: formData.get('role'),
+        group: formData.get('group'),
+        faculty: formData.get('faculty'),
+        department: formData.get('department'),
+        position: formData.get('position')
+    };
 
-            // Валидация
-            if (!userData.username || !userData.password || !userData.email || 
-                !userData.firstName || !userData.lastName || !userData.role) {
-                showAlert('Все обязательные поля должны быть заполнены', 'error');
-                return;
-            }
+    // Валидация
+    if (!userData.username || !userData.password || !userData.email || 
+        !userData.firstName || !userData.lastName || !userData.role) {
+        showAlert('Все обязательные поля должны быть заполнены', 'error');
+        return;
+    }
 
-            if (userData.password.length < 10) {
-                showAlert('Пароль должен содержать не менее 10 символов', 'error');
-                return;
-            }
+    if (userData.password.length < 10) {
+        showAlert('Пароль должен содержать не менее 10 символов', 'error');
+        return;
+    }
 
-            try {
-                const baseUrl = window.location.origin;
-                console.log('Отправка email для кода:', userData.email);
-                
-                const response = await fetch(baseUrl + '/api/send-verification', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ email: userData.email })
-                });
+    // Показываем индикатор загрузки
+    sendCodeBtn.disabled = true;
+    sendCodeBtn.textContent = 'Отправка...';
 
-                // Проверяем ответ
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Ошибка сервера:', errorText);
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                console.log('Ответ от сервера:', result);
-                
-                if (result.success) {
-                    userEmail.textContent = userData.email;
-                    step1.style.display = 'none';
-                    step2.style.display = 'block';
-                    showAlert(result.message, 'success');
-                    
-                    // Фокусируемся на поле ввода кода
-                    document.getElementById('verificationCode').focus();
-                } else {
-                    showAlert(result.error || 'Ошибка отправки кода', 'error');
-                }
-            } catch (error) {
-                console.error('Ошибка сети:', error);
-                showAlert('Ошибка сети: ' + error.message, 'error');
-            }
+    try {
+        const baseUrl = window.location.origin;
+        console.log('Отправка email для кода:', userData.email);
+        
+        // Таймаут 15 секунд для fetch запроса
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const response = await fetch(baseUrl + '/api/send-verification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: userData.email }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+
+        // Проверяем ответ
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка сервера:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Ответ от сервера:', result);
+        
+        if (result.success) {
+            userEmail.textContent = userData.email;
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+            showAlert(result.message, 'success');
+            
+            // Фокусируемся на поле ввода кода
+            document.getElementById('verificationCode').focus();
+        } else {
+            showAlert(result.error || 'Ошибка отправки кода', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка сети:', error);
+        if (error.name === 'AbortError') {
+            showAlert('Таймаут запроса. Проверьте консоль Render для получения кода.', 'error');
+        } else {
+            showAlert('Ошибка сети: ' + error.message, 'error');
+        }
+    } finally {
+        // Восстанавливаем кнопку
+        sendCodeBtn.disabled = false;
+        sendCodeBtn.textContent = 'Отправить код подтверждения';
+    }
+});
 
         // Возврат к первому шагу
         backToStep1.addEventListener('click', function() {

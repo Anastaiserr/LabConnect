@@ -56,42 +56,64 @@ function generateVerificationCode() {
   return crypto.randomInt(100000, 999999).toString();
 }
 
-// Отправка кода подтверждения (или вывод в консоль если нет настроек email)
+// Отправка кода подтверждения с таймаутами
 async function sendVerificationEmail(email, verificationCode) {
+  console.log(`📧 Попытка отправки кода на: ${email}`);
+  
   const transporter = createTransporter();
   
-  // Если email не настроен, выводим код в консоль для разработки
   if (!transporter) {
-    console.log(`📧 [РЕЖИМ РАЗРАБОТКИ] Код подтверждения для ${email}: ${verificationCode}`);
+    console.log(`📧 [РЕЖИМ РАЗРАБОТКИ] Код для ${email}: ${verificationCode}`);
     return true;
   }
 
-  try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Подтверждение email - LabConnect',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2c3e50;">Добро пожаловать в LabConnect!</h2>
-          <p>Для завершения регистрации введите следующий код подтверждения:</p>
-          <div style="background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #3498db; font-size: 32px; margin: 0;">${verificationCode}</h1>
+  // Добавляем таймаут
+  const emailPromise = new Promise(async (resolve, reject) => {
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Подтверждение email - LabConnect',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c3e50;">Добро пожаловать в LabConnect!</h2>
+            <p>Для завершения регистрации введите следующий код подтверждения:</p>
+            <div style="background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #3498db; font-size: 32px; margin: 0;">${verificationCode}</h1>
+            </div>
+            <p>Этот код действителен в течение 10 минут.</p>
+            <p>Если вы не регистрировались в LabConnect, просто проигнорируйте это письмо.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #666; font-size: 12px;">LabConnect - платформа для лабораторных работ</p>
           </div>
-          <p>Этот код действителен в течение 10 минут.</p>
-          <p>Если вы не регистрировались в LabConnect, просто проигнорируйте это письмо.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #666; font-size: 12px;">LabConnect - платформа для лабораторных работ</p>
-        </div>
-      `
-    };
+        `
+      };
 
-    await transporter.sendMail(mailOptions);
+      console.log('📧 Отправка письма...');
+      const result = await transporter.sendMail(mailOptions);
+      console.log('✅ Письмо отправлено успешно');
+      resolve(true);
+      
+    } catch (error) {
+      console.error('❌ Ошибка отправки email:', error);
+      reject(error);
+    }
+  });
+
+  // Таймаут 10 секунд
+  const timeoutPromise = new Promise((resolve, reject) => {
+    setTimeout(() => {
+      reject(new Error('Таймаут отправки email (10 секунд)'));
+    }, 10000);
+  });
+
+  try {
+    await Promise.race([emailPromise, timeoutPromise]);
     console.log('✅ Код подтверждения отправлен на:', email);
     return true;
   } catch (error) {
-    console.error('❌ Ошибка отправки email:', error);
-    // При ошибке все равно выводим код в консоль
+    console.error('❌ Ошибка отправки кода:', error);
+    // Все равно выводим код в консоль
     console.log(`📧 [РЕЗЕРВНЫЙ КОД] для ${email}: ${verificationCode}`);
     return true;
   }
