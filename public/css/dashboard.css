@@ -612,3 +612,141 @@
     color: #856404;
     margin: 0;
 }
+/* Стили для управления курсами */
+.courses-management {
+    margin-top: 1rem;
+}
+
+.course-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border-left: 4px solid var(--secondary-color);
+    margin-bottom: 1rem;
+    transition: all 0.3s;
+}
+
+.course-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.course-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.course-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0;
+    flex: 1;
+}
+
+.course-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.course-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.course-meta span {
+    color: #666;
+}
+
+.course-meta strong {
+    color: var(--dark-color);
+}
+
+.course-stats {
+    display: flex;
+    gap: 0.5rem;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.btn-outline:hover {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.no-courses, .error-message {
+    text-align: center;
+    padding: 3rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    color: #666;
+}
+
+.no-courses p, .error-message p {
+    margin-bottom: 1rem;
+}
+
+.loading {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+    font-style: italic;
+}
+
+/* Стили для модального окна создания курса */
+.modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.close {
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #999;
+}
+
+.close:hover {
+    color: var(--danger-color);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}

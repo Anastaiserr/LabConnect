@@ -45,6 +45,44 @@
             </nav>
 
             <div class="dashboard-content">
+                <!-- Модальное окно создания курса -->
+<div id="create-course-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Создание нового курса</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="course-create-form">
+                <div class="form-group">
+                    <label for="course-name">Название курса *</label>
+                    <input type="text" id="course-name" name="course-name" class="form-control" required 
+                           placeholder="Веб-технологии">
+                </div>
+                <div class="form-group">
+                    <label for="course-discipline">Дисциплина *</label>
+                    <input type="text" id="course-discipline" name="course-discipline" class="form-control" required 
+                           placeholder="Программная инженерия">
+                </div>
+                <div class="form-group">
+                    <label for="course-description">Описание курса</label>
+                    <textarea id="course-description" name="course-description" class="form-control" rows="3" 
+                              placeholder="Краткое описание курса..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="course-password">Пароль для доступа к курсу (необязательно)</label>
+                    <input type="password" id="course-password" name="course-password" class="form-control" 
+                           placeholder="Оставьте пустым для свободного доступа">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать курс</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
                 <!-- Вкладка Профиль -->
                 <div id="profile" class="tab-content active">
                     <div class="tab-header">
