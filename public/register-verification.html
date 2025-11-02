@@ -176,17 +176,19 @@
             // Отправка кода подтверждения
 sendCodeBtn.addEventListener('click', async function() {
     const formData = new FormData(document.getElementById('registerStep1Form'));
+    
+    // Сохраняем ВСЕ данные
     userData = {
-        username: formData.get('username'),
-        password: formData.get('password'),
-        email: formData.get('email'),
-        firstName: formData.get('firstName'),
-        lastName: formData.get('lastName'),
-        role: formData.get('role'),
-        group: formData.get('group'),
-        faculty: formData.get('faculty'),
-        department: formData.get('department'),
-        position: formData.get('position')
+        username: formData.get('username') || '',
+        password: formData.get('password') || '',
+        email: formData.get('email') || '',
+        firstName: formData.get('firstName') || '',
+        lastName: formData.get('lastName') || '',
+        role: formData.get('role') || 'student',
+        group: formData.get('group') || '',
+        faculty: formData.get('faculty') || '',
+        department: formData.get('department') || '',
+        position: formData.get('position') || ''
     };
 
     // Валидация
@@ -276,42 +278,61 @@ sendCodeBtn.addEventListener('click', async function() {
             });
 
             // Завершение регистрации
-            document.getElementById('registerStep2Form').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const verificationCode = document.getElementById('verificationCode').value;
-                
-                if (!verificationCode || verificationCode.length !== 6) {
-                    showAlert('Введите 6-значный код подтверждения', 'error');
-                    return;
-                }
+document.getElementById('registerStep2Form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const verificationCode = document.getElementById('verificationCode').value;
+    
+    if (!verificationCode || verificationCode.length !== 6) {
+        showAlert('Введите 6-значный код подтверждения', 'error');
+        return;
+    }
 
-                try {
-                    const response = await fetch('/api/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            ...userData,
-                            verificationCode: verificationCode
-                        })
-                    });
+    try {
+        // Добавляем полный URL и обработку ошибок
+        const baseUrl = window.location.origin;
+        const response = await fetch(baseUrl + '/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: userData.username,
+                password: userData.password,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role,
+                group: userData.group,
+                faculty: userData.faculty,
+                department: userData.department,
+                position: userData.position,
+                verificationCode: verificationCode
+            })
+        });
 
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        showAlert(result.message, 'success');
-                        setTimeout(() => {
-                            window.location.href = 'login.html';
-                        }, 2000);
-                    } else {
-                        showAlert(result.error, 'error');
-                    }
-                } catch (error) {
-                    showAlert('Ошибка сети: ' + error.message, 'error');
-                }
-            });
+        // Проверяем статус ответа
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 2000);
+        } else {
+            showAlert(result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        showAlert('Ошибка регистрации: ' + error.message, 'error');
+    }
+});
         });
     </script>
 
