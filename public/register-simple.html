@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Платформа для выдачи и оценки лабораторных работ</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                    <li><a href="login.html">Войти</a></li>
+                    <li><a href="register-simple.html" class="active">Регистрация</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="form-container">
+                <h2>Регистрация в системе</h2>
+                
+                <form id="registerForm">
+                    <!-- Скрытое поле для роли -->
+                    <input type="hidden" id="role" name="role" value="student">
+                    
+                    <div class="role-selector">
+                        <div class="role-option active" data-role="student">
+                            <input type="radio" id="role-student" name="role-radio" value="student" checked>
+                            <label for="role-student">Студент</label>
+                        </div>
+                        <div class="role-option" data-role="teacher">
+                            <input type="radio" id="role-teacher" name="role-radio" value="teacher">
+                            <label for="role-teacher">Преподаватель</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="username">Имя пользователя (логин)</label>
+                        <input type="text" id="username" name="username" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Пароль (не менее 10 символов)</label>
+                        <input type="password" id="password" name="password" class="form-control" required minlength="10">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Электронная почта</label>
+                        <input type="email" id="email" name="email" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="firstName">Имя</label>
+                        <input type="text" id="firstName" name="firstName" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastName">Фамилия</label>
+                        <input type="text" id="lastName" name="lastName" class="form-control" required>
+                    </div>
+                    
+                    <!-- Поля для студента -->
+                    <div id="student-fields">
+                        <div class="form-group">
+                            <label for="group">Номер группы</label>
+                            <input type="text" id="group" name="group" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="faculty">Факультет</label>
+                            <input type="text" id="faculty" name="faculty" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <!-- Поля для преподавателя -->
+                    <div id="teacher-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="department">Кафедра</label>
+                            <input type="text" id="department" name="department" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="position">Должность</label>
+                            <input type="text" id="position" name="position" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Зарегистрироваться</button>
+                </form>
+                
+                <p style="text-align: center; margin-top: 1rem;">
+                    Уже есть аккаунт? <a href="login.html">Войти</a>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Обработка переключения между ролями
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleOptions = document.querySelectorAll('.role-option');
+            const studentFields = document.getElementById('student-fields');
+            const teacherFields = document.getElementById('teacher-fields');
+            const roleHiddenField = document.getElementById('role');
+            
+            roleOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Снять выделение со всех опций
+                    roleOptions.forEach(opt => opt.classList.remove('active'));
+                    // Выделить выбранную опцию
+                    this.classList.add('active');
+                    
+                    // Установить значение radio и скрытого поля
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+                    
+                    const selectedRole = this.getAttribute('data-role');
+                    roleHiddenField.value = selectedRole;
+                    
+                    // Показать/скрыть соответствующие поля
+                    if (selectedRole === 'student') {
+                        studentFields.style.display = 'block';
+                        teacherFields.style.display = 'none';
+                    } else {
+                        studentFields.style.display = 'none';
+                        teacherFields.style.display = 'block';
+                    }
+                });
+            });
+
+            // Обработка формы регистрации
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) {
+                registerForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(e.target);
+                    const userData = {
+                        username: formData.get('username'),
+                        password: formData.get('password'),
+                        email: formData.get('email'),
+                        firstName: formData.get('firstName'),
+                        lastName: formData.get('lastName'),
+                        role: formData.get('role'),
+                        group: formData.get('group'),
+                        faculty: formData.get('faculty'),
+                        department: formData.get('department'),
+                        position: formData.get('position')
+                    };
+                    
+                    // Валидация пароля
+                    if (userData.password.length < 10) {
+                        showAlert('Пароль должен содержать не менее 10 символов', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const baseUrl = window.location.origin;
+                        const response = await fetch(baseUrl + '/api/register-simple', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(userData)
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showAlert(result.message, 'success');
+                            
+                            // Перенаправляем на страницу входа после успешной регистрации
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 2000);
+                            
+                        } else {
+                            showAlert(result.error, 'error');
+                        }
+                    } catch (error) {
+                        showAlert('Ошибка регистрации: ' + error.message, 'error');
+                    }
+                });
+            }
+
+            function showAlert(message, type = 'info') {
+                const existingAlerts = document.querySelectorAll('.alert');
+                existingAlerts.forEach(alert => alert.remove());
+                
+                const alert = document.createElement('div');
+                alert.className = `alert alert-${type}`;
+                alert.textContent = message;
+                
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: 4px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    max-width: 300px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                
+                const colors = {
+                    success: '#27ae60',
+                    error: '#e74c3c',
+                    warning: '#f39c12',
+                    info: '#3498db'
+                };
+                
+                alert.style.backgroundColor = colors[type] || colors.info;
+                
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.remove();
+                    }
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

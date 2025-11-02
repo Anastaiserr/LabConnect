@@ -162,7 +162,7 @@ function updateUIForUnauthUser() {
     authLinks.innerHTML = `
       <li><a href="index.html">Главная</a></li>
       <li><a href="login.html">Войти</a></li>
-      <li><a href="register-verification.html">Регистрация</a></li>
+      <li><a href="register-simple.html.html">Регистрация</a></li>
     `;
   }
 }

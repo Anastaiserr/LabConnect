@@ -26,98 +26,17 @@ app.use(session({
   }
 }));
 
-// Для совместимости с вашим api.js
-global.API = {
-  // Это нужно для совместимости с фронтендом
-};
-
-// Настройка почтового отправления для Render (используем переменные окружения)
-const createTransporter = () => {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_PASS;
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   
-  if (!emailUser || !emailPass) {
-    console.log('⚠️  Email переменные не настроены. Коды будут выводиться в консоль.');
-    return null;
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
   }
-  
-  console.log('✅ Email настроен, отправка писем включена');
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: emailUser,
-      pass: emailPass
-    }
-  });
-};
-
-// Генерация кода подтверждения
-function generateVerificationCode() {
-  return crypto.randomInt(100000, 999999).toString();
-}
-
-// Отправка кода подтверждения с таймаутами
-async function sendVerificationEmail(email, verificationCode) {
-  console.log(`📧 Попытка отправки кода на: ${email}`);
-  
-  const transporter = createTransporter();
-  
-  if (!transporter) {
-    console.log(`📧 [РЕЖИМ РАЗРАБОТКИ] Код для ${email}: ${verificationCode}`);
-    return true;
-  }
-
-  // Добавляем таймаут
-  const emailPromise = new Promise(async (resolve, reject) => {
-    try {
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Подтверждение email - LabConnect',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2c3e50;">Добро пожаловать в LabConnect!</h2>
-            <p>Для завершения регистрации введите следующий код подтверждения:</p>
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;">
-              <h1 style="color: #3498db; font-size: 32px; margin: 0;">${verificationCode}</h1>
-            </div>
-            <p>Этот код действителен в течение 10 минут.</p>
-            <p>Если вы не регистрировались в LabConnect, просто проигнорируйте это письмо.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #666; font-size: 12px;">LabConnect - платформа для лабораторных работ</p>
-          </div>
-        `
-      };
-
-      console.log('📧 Отправка письма...');
-      const result = await transporter.sendMail(mailOptions);
-      console.log('✅ Письмо отправлено успешно');
-      resolve(true);
-      
-    } catch (error) {
-      console.error('❌ Ошибка отправки email:', error);
-      reject(error);
-    }
-  });
-
-  // Таймаут 10 секунд
-  const timeoutPromise = new Promise((resolve, reject) => {
-    setTimeout(() => {
-      reject(new Error('Таймаут отправки email (10 секунд)'));
-    }, 10000);
-  });
-
-  try {
-    await Promise.race([emailPromise, timeoutPromise]);
-    console.log('✅ Код подтверждения отправлен на:', email);
-    return true;
-  } catch (error) {
-    console.error('❌ Ошибка отправки кода:', error);
-    // Все равно выводим код в консоль
-    console.log(`📧 [РЕЗЕРВНЫЙ КОД] для ${email}: ${verificationCode}`);
-    return true;
-  }
-}
+  next();
+});
 
 // Инициализация базы данных
 const db = new sqlite3.Database(process.env.DATABASE_URL || './labconnect.db', (err) => {
@@ -165,7 +84,7 @@ function initDatabase() {
     if (err) {
       console.error('❌ Ошибка создания таблицы email_verifications:', err);
     } else {
-      console.log('✅ Таблица email_verifications готова');
+      console.log('✅ Таблица email_verifications готowa');
     }
   });
 
@@ -240,123 +159,18 @@ function requireAuth(req, res, next) {
     res.status(401).json({ error: 'Требуется аутентификация' });
   }
 }
-// CORS middleware
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
+
 // API маршруты
 
-// Отправка кода подтверждения при регистрации
-app.post('/api/send-verification', async (req, res) => {
-    console.log('=== SEND VERIFICATION REQUEST ===');
-    console.log('Body:', req.body);
-    
-    const { email } = req.body;
-
-    if (!email) {
-        console.log('No email provided');
-        return res.status(400).json({ error: 'Email обязателен' });
-    }
-
-  try {
-    // Проверяем, не зарегистрирован ли уже email
-    db.get('SELECT id FROM users WHERE email = ?', [email], async (err, row) => {
-      if (err) {
-        console.error('Ошибка БД:', err);
-        return res.status(500).json({ error: 'Ошибка базы данных' });
-      }
-      
-      if (row) {
-        return res.status(400).json({ error: 'Этот email уже зарегистрирован' });
-      }
-
-      const verificationCode = generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 минут
-
-      // Сохраняем код в базу
-      db.run(
-        'INSERT OR REPLACE INTO email_verifications (email, code, expires_at) VALUES (?, ?, ?)',
-        [email, verificationCode, expiresAt.toISOString()],
-        async function(err) {
-          if (err) {
-            console.error('Ошибка сохранения кода:', err);
-            return res.status(500).json({ error: 'Ошибка сервера' });
-          }
-
-          // Отправляем email (или выводим в консоль)
-          const emailSent = await sendVerificationEmail(email, verificationCode);
-          
-          if (emailSent) {
-            res.json({ 
-              success: true, 
-              message: 'Код подтверждения отправлен на ваш email' 
-            });
-          } else {
-            res.status(500).json({ error: 'Ошибка отправки email. Попробуйте позже.' });
-          }
-        }
-      );
-    });
-  } catch (error) {
-    console.error('Ошибка отправки кода:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Подтверждение email
-app.post('/api/verify-email', async (req, res) => {
-  const { email, code } = req.body;
-
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email и код обязательны' });
-  }
-
-  try {
-    // Проверяем код
-    db.get(
-      'SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > datetime("now")',
-      [email, code],
-      (err, row) => {
-        if (err) {
-          console.error('Ошибка БД:', err);
-          return res.status(500).json({ error: 'Ошибка базы данных' });
-        }
-
-        if (!row) {
-          return res.status(400).json({ error: 'Неверный код или срок действия истек' });
-        }
-
-        // Удаляем использованный код
-        db.run('DELETE FROM email_verifications WHERE email = ?', [email]);
-
-        res.json({ 
-          success: true, 
-          message: 'Email успешно подтвержден' 
-        });
-      }
-    );
-  } catch (error) {
-    console.error('Ошибка подтверждения email:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Регистрация (ОБНОВЛЕННАЯ ВЕРСИЯ - с обязательным подтверждением email)
-app.post('/api/register', async (req, res) => {
-  console.log('=== РЕГИСТРАЦИЯ ===');
+// Простая регистрация без подтверждения email
+app.post('/api/register-simple', async (req, res) => {
+  console.log('=== ПРОСТАЯ РЕГИСТРАЦИЯ ===');
   
-  const { username, password, email, firstName, lastName, role, group, faculty, department, position, verificationCode } = req.body;
+  const { username, password, email, firstName, lastName, role, group, faculty, department, position } = req.body;
 
   // Валидация
-  if (!username || !password || !email || !firstName || !lastName || !role || !verificationCode) {
-    return res.status(400).json({ error: 'Все поля, включая код подтверждения, обязательны' });
+  if (!username || !password || !email || !firstName || !lastName || !role) {
+    return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
   }
 
   if (password.length < 10) {
@@ -364,60 +178,41 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
-    // Сначала проверяем код подтверждения
-    db.get(
-      'SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > datetime("now")',
-      [email, verificationCode],
-      async (err, verificationRow) => {
-        if (err) {
-          console.error('Ошибка БД при проверке кода:', err);
-          return res.status(500).json({ error: 'Ошибка базы данных' });
-        }
+    // Проверяем, не зарегистрирован ли уже пользователь
+    db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], async (err, row) => {
+      if (err) {
+        console.error('Ошибка БД:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+      
+      if (row) {
+        return res.status(400).json({ error: 'Пользователь с таким именем или email уже существует' });
+      }
 
-        if (!verificationRow) {
-          return res.status(400).json({ error: 'Неверный код подтверждения или срок действия истек' });
-        }
+      // Хеширование пароля
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Проверяем, не зарегистрирован ли уже пользователь
-        db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], async (err, row) => {
+      // Создание пользователя БЕЗ подтверждения email
+      db.run(
+        `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, group_name, faculty, department, position) 
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, hashedPassword, email, firstName, lastName, role, group || null, faculty || null, department || null, position || null],
+        function(err) {
           if (err) {
-            console.error('Ошибка БД:', err);
-            return res.status(500).json({ error: 'Ошибка базы данных' });
+            console.error('Ошибка создания пользователя:', err);
+            return res.status(500).json({ error: 'Ошибка при создании пользователя: ' + err.message });
           }
           
-          if (row) {
-            return res.status(400).json({ error: 'Пользователь с таким именем или email уже существует' });
-          }
-
-          // Хеширование пароля
-          const hashedPassword = await bcrypt.hash(password, 10);
-
-          // Создание пользователя с подтвержденным email
-          db.run(
-            `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, group_name, faculty, department, position) 
-             VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
-            [username, hashedPassword, email, firstName, lastName, role, group || null, faculty || null, department || null, position || null],
-            function(err) {
-              if (err) {
-                console.error('Ошибка создания пользователя:', err);
-                return res.status(500).json({ error: 'Ошибка при создании пользователя: ' + err.message });
-              }
-              
-              // Удаляем использованный код подтверждения
-              db.run('DELETE FROM email_verifications WHERE email = ?', [email]);
-              
-              console.log('✅ Пользователь создан с ID:', this.lastID);
-              
-              res.json({ 
-                success: true, 
-                message: 'Пользователь успешно зарегистрирован и подтвержден. Теперь вы можете войти.',
-                userId: this.lastID
-              });
-            }
-          );
-        });
-      }
-    );
+          console.log('✅ Пользователь создан с ID:', this.lastID);
+          
+          res.json({ 
+            success: true, 
+            message: 'Пользователь успешно зарегистрирован. Теперь вы можете войти.',
+            userId: this.lastID
+          });
+        }
+      );
+    });
   } catch (error) {
     console.error('Ошибка регистрации:', error);
     res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
@@ -451,12 +246,6 @@ app.post('/api/login', (req, res) => {
     if (!isValidPassword) {
       console.log('❌ Неверный пароль для пользователя:', username);
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
-
-    // Проверяем, подтвержден ли email
-    if (!user.email_verified) {
-      console.log('❌ Email не подтвержден для пользователя:', username);
-      return res.status(401).json({ error: 'Email не подтвержден. Проверьте вашу почту.' });
     }
 
     // Сохраняем пользователя в сессии
