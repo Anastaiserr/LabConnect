@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
@@ -38,12 +38,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Инициализация базы данных
-const db = new sqlite3.Database(process.env.DATABASE_URL || './labconnect.db', (err) => {
+// Подключение к PostgreSQL
+const db = new Client({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+db.connect((err) => {
   if (err) {
-    console.error('Ошибка подключения к БД:', err.message);
+    console.error('Ошибка подключения к PostgreSQL:', err);
   } else {
-    console.log('✅ Подключение к SQLite базе данных установлено');
+    console.log('✅ Подключение к PostgreSQL установлено');
     initDatabase();
   }
 });
