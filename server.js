@@ -82,18 +82,6 @@ async function initDatabase() {
     `);
     console.log('✅ Таблица users готова');
 
-    // Таблица для кодов подтверждения email
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS email_verifications (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        code VARCHAR(6) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
-      )
-    `);
-    console.log('✅ Таблица email_verifications готова');
-
     // Таблица для курсов
     await db.query(`
       CREATE TABLE IF NOT EXISTS courses (
@@ -107,6 +95,10 @@ async function initDatabase() {
       )
     `);
     console.log('✅ Таблица courses готова');
+
+    // Проверим существующие курсы
+    const coursesCheck = await db.query('SELECT COUNT(*) as count FROM courses');
+    console.log(`📊 В таблице courses: ${coursesCheck.rows[0].count} записей`);
 
     // Таблица для лабораторных работ
     await db.query(`

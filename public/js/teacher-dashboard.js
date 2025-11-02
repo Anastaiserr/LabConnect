@@ -14,6 +14,12 @@ async function initTeacherDashboard() {
     
     // Инициализация модальных окон
     initTeacherModals();
+    
+    // Автоматически загружаем курсы если активна вкладка "Дисциплины и Курсы"
+    const activeTab = document.querySelector('.nav-link.active');
+    if (activeTab && activeTab.getAttribute('data-tab') === 'disciplines') {
+        await loadTeacherCourses();
+    }
 }
 
 function initTeacherTabs() {
@@ -41,28 +47,112 @@ function initTeacherTabs() {
     });
 }
 
-async function loadTeacherData() {
+// Загрузка курсов преподавателя
+async function loadTeacherCourses() {
     try {
-        const response = await API.getCurrentUser();
-        if (response.user) {
-            const user = response.user;
-            
-            // Заполнение данных в профиле реальными данными
-            document.getElementById('teacher-name').textContent = user.firstName + ' ' + user.lastName;
-            document.getElementById('teacher-department').textContent = 'Кафедра: ' + (user.department || 'Не указана');
-            document.getElementById('teacher-firstname').textContent = user.firstName;
-            document.getElementById('teacher-lastname').textContent = user.lastName;
-            document.getElementById('teacher-email').textContent = user.email;
-            document.getElementById('teacher-department-detail').textContent = user.department || 'Не указана';
-            document.getElementById('teacher-position').textContent = user.position || 'Не указана';
-            
-            // Сохраняем данные пользователя
-            window.currentTeacher = user;
+        const coursesList = document.getElementById('courses-list');
+        const loadingElement = document.getElementById('courses-loading');
+        
+        // Показываем загрузку
+        coursesList.innerHTML = '<div class="loading">Загрузка курсов...</div>';
+        
+        console.log('🔄 Загрузка курсов...');
+        
+        // Загружаем курсы через API
+        const response = await fetch('/api/teacher/courses', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+
+        console.log('Статус ответа:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка HTTP:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const result = await response.json();
+        console.log('Полученные курсы:', result);
+        
+        if (result.courses && result.courses.length > 0) {
+            displayTeacherCourses(result.courses);
+        } else {
+            coursesList.innerHTML = `
+                <div class="no-courses">
+                    <h4>Курсы не найдены</h4>
+                    <p>У вас пока нет созданных курсов</p>
+                    <p>Создайте первый курс, нажав кнопку "Создать новый курс"</p>
+                </div>
+            `;
+        }
+        
     } catch (error) {
-        console.error('Ошибка загрузки данных преподавателя:', error);
-        // Если не авторизован, перенаправляем на вход
-        window.location.href = 'login.html';
+        console.error('Ошибка загрузки курсов:', error);
+        document.getElementById('courses-list').innerHTML = `
+            <div class="error-message">
+                <h4>Ошибка загрузки</h4>
+                <p>${error.message}</p>
+                <button class="btn btn-secondary" onclick="loadTeacherCourses()">Повторить попытку</button>
+            </div>
+        `;
+    }
+}
+
+// Создание нового курса
+async function createNewCourse() {
+    const form = document.getElementById('course-create-form');
+    const formData = new FormData(form);
+    
+    const courseData = {
+        name: formData.get('course-name'),
+        description: formData.get('course-description'),
+        discipline: formData.get('course-discipline'),
+        password: formData.get('course-password')
+    };
+    
+    console.log('🔄 Создание курса:', courseData);
+    
+    // Валидация
+    if (!courseData.name || !courseData.discipline) {
+        showAlert('Название и дисциплина обязательны для заполнения', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/courses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(courseData)
+        });
+
+        console.log('Статус создания курса:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Ошибка API:', errorData);
+            throw new Error(errorData.error || 'Ошибка создания курса');
+        }
+
+        const result = await response.json();
+        console.log('Курс создан:', result);
+        
+        showAlert(result.message, 'success');
+        document.getElementById('create-course-modal').style.display = 'none';
+        form.reset();
+        
+        // Перезагружаем список курсов
+        await loadTeacherCourses();
+        
+    } catch (error) {
+        console.error('Ошибка создания курса:', error);
+        showAlert('Ошибка создания курса: ' + error.message, 'error');
     }
 }
 
