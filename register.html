@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Платформа для выдачи и оценки лабораторных работ</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                    <li><a href="login.html">Войти</a></li>
+                    <li><a href="register.html" class="active">Регистрация</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="form-container">
+                <h2>Регистрация в системе</h2>
+                
+                <form id="registerForm">
+                    <!-- Скрытое поле для роли -->
+                    <input type="hidden" id="role" name="role" value="student">
+                    
+                    <div class="role-selector">
+                        <div class="role-option active" data-role="student">
+                            <input type="radio" id="role-student" name="role-radio" value="student" checked>
+                            <label for="role-student">Студент</label>
+                        </div>
+                        <div class="role-option" data-role="teacher">
+                            <input type="radio" id="role-teacher" name="role-radio" value="teacher">
+                            <label for="role-teacher">Преподаватель</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="username">Имя пользователя (логин)</label>
+                        <input type="text" id="username" name="username" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Пароль (не менее 10 символов)</label>
+                        <input type="password" id="password" name="password" class="form-control" required minlength="10">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Электронная почта</label>
+                        <input type="email" id="email" name="email" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="firstName">Имя</label>
+                        <input type="text" id="firstName" name="firstName" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastName">Фамилия</label>
+                        <input type="text" id="lastName" name="lastName" class="form-control" required>
+                    </div>
+                    
+                    <!-- Поля для студента -->
+                    <div id="student-fields">
+                        <div class="form-group">
+                            <label for="group">Номер группы</label>
+                            <input type="text" id="group" name="group" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="faculty">Факультет</label>
+                            <input type="text" id="faculty" name="faculty" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <!-- Поля для преподавателя -->
+                    <div id="teacher-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="department">Кафедра</label>
+                            <input type="text" id="department" name="department" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="position">Должность</label>
+                            <input type="text" id="position" name="position" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Зарегистрироваться</button>
+                </form>
+                
+                <p style="text-align: center; margin-top: 1rem;">
+                    Уже есть аккаунт? <a href="login.html">Войти</a>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Обработка переключения между ролями
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleOptions = document.querySelectorAll('.role-option');
+            const studentFields = document.getElementById('student-fields');
+            const teacherFields = document.getElementById('teacher-fields');
+            const roleHiddenField = document.getElementById('role');
+            
+            roleOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Снять выделение со всех опций
+                    roleOptions.forEach(opt => opt.classList.remove('active'));
+                    // Выделить выбранную опцию
+                    this.classList.add('active');
+                    
+                    // Установить значение radio и скрытого поля
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+                    
+                    const selectedRole = this.getAttribute('data-role');
+                    roleHiddenField.value = selectedRole;
+                    
+                    // Показать/скрыть соответствующие поля
+                    if (selectedRole === 'student') {
+                        studentFields.style.display = 'block';
+                        teacherFields.style.display = 'none';
+                    } else {
+                        studentFields.style.display = 'none';
+                        teacherFields.style.display = 'block';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет преподавателя - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Личный кабинет преподавателя</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#" id="logout">Выйти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <div class="container">
+            <div class="dashboard-header">
+                <h2>Добро пожаловать, <span id="teacher-name">Преподаватель</span>!</h2>
+                <div class="user-info">
+                    <span id="teacher-department">Кафедра: АСОПУ</span>
+                </div>
+            </div>
+
+            <nav class="dashboard-nav">
+                <ul>
+                    <li><a href="#profile" class="nav-link active" data-tab="profile">Профиль</a></li>
+                    <li><a href="#disciplines" class="nav-link" data-tab="disciplines">Дисциплины и Курсы</a></li>
+                    <li><a href="#assign-tasks" class="nav-link" data-tab="assign-tasks">Выдача заданий</a></li>
+                    <li><a href="#check-works" class="nav-link" data-tab="check-works">Проверка работ</a></li>
+                    <li><a href="#statements" class="nav-link" data-tab="statements">Ведомости</a></li>
+                    <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
+                    <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
+                </ul>
+            </nav>
+
+            <div class="dashboard-content">
+                <!-- Вкладка Профиль -->
+                <div id="profile" class="tab-content active">
+                    <div class="tab-header">
+                        <h3>Мой профиль</h3>
+                        <div class="profile-actions">
+                            <button class="btn btn-secondary" id="edit-profile">Редактировать профиль</button>
+                            <button class="btn btn-secondary" id="change-username-btn">Сменить логин</button>
+                            <button class="btn btn-secondary" id="change-password-btn">Сменить пароль</button>
+                            <button class="btn btn-danger" id="delete-profile-btn">Удалить профиль</button>
+                        </div>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-card">
+                            <div class="profile-header">
+                                <h4>Личная информация</h4>
+                            </div>
+                            <div class="profile-details">
+                                <div class="detail-item">
+                                    <label>Имя:</label>
+                                    <span id="teacher-firstname">Николай</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Фамилия:</label>
+                                    <span id="teacher-lastname">Измайлов</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Email:</label>
+                                    <span id="teacher-email">n.izmaylov@astu.ru</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Кафедра:</label>
+                                    <span id="teacher-department-detail">Автоматизированные системы обработки информации и управления</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Должность:</label>
+                                    <span id="teacher-position">Ассистент</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stats-card">
+                            <h4>Статистика преподавания</h4>
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <span class="stat-number">4</span>
+                                    <span class="stat-label">Активных курса</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-number">28</span>
+                                    <span class="stat-label">Студентов</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-number">15</span>
+                                    <span class="stat-label">Работ на проверке</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-number">42</span>
+                                    <span class="stat-label">Проверенных работ</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Дисциплины и Курсы -->
+                <div id="disciplines" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Дисциплины и Курсы</h3>
+                        <button class="btn btn-primary" id="create-course-btn">Создать новый курс</button>
+                    </div>
+                    <div class="courses-management">
+                        <div class="courses-list">
+                            <!-- Список курсов будет загружен через JavaScript -->
+                            <div class="loading">Загрузка курсов...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Выдача заданий -->
+                <div id="assign-tasks" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Выдача лабораторных работ</h3>
+                        <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
+                    </div>
+                    <div class="lab-management">
+                        <div class="existing-labs">
+                            <h4>Существующие лабораторные работы</h4>
+                            <div class="labs-list">
+                                <!-- Список лабораторных работ будет загружен через JavaScript -->
+                                <div class="loading">Загрузка лабораторных работ...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Проверка работ -->
+                <div id="check-works" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Проверка работ студентов</h3>
+                        <div class="filter-options">
+                            <select id="works-filter">
+                                <option value="all">Все работы</option>
+                                <option value="pending">Ожидают проверки</option>
+                                <option value="checked">Проверенные</option>
+                                <option value="overdue">Просроченные</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="works-to-check">
+                        <div class="works-list">
+                            <!-- Работы на проверку будут загружены через JavaScript -->
+                            <div class="loading">Загрузка работ для проверки...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Ведомости -->
+                <div id="statements" class="tab-content">
+                    <h3>Формирование ведомостей</h3>
+                    <div class="statements-management">
+                        <div class="statement-controls">
+                            <div class="form-group">
+                                <label for="statement-course">Выберите курс:</label>
+                                <select id="statement-course" class="form-control">
+                                    <option value="">-- Выберите курс --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="statement-group">Выберите группу:</label>
+                                <select id="statement-group" class="form-control">
+                                    <option value="">-- Выберите группу --</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" id="generate-statement">Сформировать ведомость</button>
+                        </div>
+                        <div class="statement-preview">
+                            <!-- Предпросмотр ведомости будет загружен через JavaScript -->
+                            <div class="placeholder">Выберите курс и группу для формирования ведомости</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Общение -->
+                <div id="chat" class="tab-content">
+                    <h3>Общение со студентами</h3>
+                    <div class="teacher-chat-container">
+                        <div class="chat-groups">
+                            <h4>Группы и студенты</h4>
+                            <div class="groups-list">
+                                <!-- Список групп и студентов будет загружен через JavaScript -->
+                                <div class="loading">Загрузка чатов...</div>
+                            </div>
+                        </div>
+                        <div class="chat-window">
+                            <div class="chat-placeholder">
+                                <p>Выберите чат для общения</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Настройки -->
+                <div id="settings" class="tab-content">
+                    <h3>Настройки системы</h3>
+                    <div class="settings-panel">
+                        <div class="setting-section">
+                            <h4>Критерии оценки</h4>
+                            <div class="grading-criteria">
+                                <!-- Настройки критериев оценки будут загружены через JavaScript -->
+                                <div class="loading">Загрузка критериев оценки...</div>
+                            </div>
+                        </div>
+                        <div class="setting-section">
+                            <h4>Шаблоны заданий</h4>
+                            <div class="task-templates">
+                                <!-- Шаблоны заданий будут загружены через JavaScript -->
+                                <div class="loading">Загрузка шаблонов заданий...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно редактирования профиля -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Редактирование профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="edit-firstname">Имя</label>
+                        <input type="text" id="edit-firstname" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-lastname">Фамилия</label>
+                        <input type="text" id="edit-lastname" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-department">Кафедра</label>
+                        <input type="text" id="edit-department" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-position">Должность</label>
+                        <input type="text" id="edit-position" class="form-control">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены логина -->
+    <div id="change-username-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена логина</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="username-change-form">
+                    <div class="form-group">
+                        <label for="new-username">Новый логин</label>
+                        <input type="text" id="new-username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username-password">Текущий пароль</label>
+                        <input type="password" id="username-password" class="form-control" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить логин</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Смена пароля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="password-change-form">
+                    <div class="form-group">
+                        <label for="current-password">Текущий пароль</label>
+                        <input type="password" id="current-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Новый пароль</label>
+                        <input type="password" id="new-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Подтвердите новый пароль</label>
+                        <input type="password" id="confirm-password" class="form-control" required minlength="10">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сменить пароль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно удаления профиля -->
+    <div id="delete-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Удаление профиля</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="warning-message">
+                    <h4>⚠️ Внимание! Это действие необратимо!</h4>
+                    <p>Все ваши данные, включая курсы, лабораторные работы и оценки, будут безвозвратно удалены.</p>
+                </div>
+                <form id="profile-delete-form">
+                    <div class="form-group">
+                        <label for="delete-password">Пароль для подтверждения</label>
+                        <input type="password" id="delete-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="delete-confirmation">Введите "УДАЛИТЬ" для подтверждения</label>
+                        <input type="text" id="delete-confirmation" class="form-control" required 
+                               pattern="УДАЛИТЬ" placeholder="УДАЛИТЬ">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Удалить профиль</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания курса -->
+    <div id="create-course-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Создание нового курса</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="course-create-form">
+                    <div class="form-group">
+                        <label for="course-name">Название курса</label>
+                        <input type="text" id="course-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="course-description">Описание курса</label>
+                        <textarea id="course-description" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="course-discipline">Дисциплина</label>
+                        <input type="text" id="course-discipline" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="course-password">Пароль для доступа к курсу</label>
+                        <input type="password" id="course-password" class="form-control">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Создать курс</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания лабораторной работы -->
+    <div id="create-lab-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Создание лабораторной работы</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="lab-create-form">
+                    <div class="form-group">
+                        <label for="lab-name">Название работы</label>
+                        <input type="text" id="lab-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lab-course">Курс</label>
+                        <select id="lab-course" class="form-control" required>
+                            <option value="">-- Выберите курс --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="lab-description">Описание работы</label>
+                        <textarea id="lab-description" class="form-control" rows="4" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="lab-template">Шаблон кода (необязательно)</label>
+                        <textarea id="lab-template" class="form-control" rows="6" placeholder="Введите заготовку кода..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="lab-deadline">Дедлайн сдачи</label>
+                        <input type="datetime-local" id="lab-deadline" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lab-max-score">Максимальный балл</label>
+                        <input type="number" id="lab-max-score" class="form-control" value="10" min="1" max="100">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Создать работу</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно проверки работы -->
+    <div id="check-work-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Проверка работы студента</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="work-review">
+                    <div class="work-info">
+                        <h4 id="work-student-name">Студент: Косовой Н.А.</h4>
+                        <p id="work-lab-name">Лабораторная работа: "Разработка веб-приложения"</p>
+                        <p id="work-submit-date">Дата сдачи: 25.05.2025 14:30</p>
+                    </div>
+                    <div class="work-files">
+                        <h5>Прикрепленные файлы:</h5>
+                        <div id="work-files-list">
+                            <!-- Список файлов будет загружен через JavaScript -->
+                        </div>
+                    </div>
+                    <div class="work-code">
+                        <h5>Исходный код:</h5>
+                        <pre id="work-code-preview"><code>// Код студента будет отображен здесь</code></pre>
+                    </div>
+                    <div class="work-evaluation">
+                        <h5>Оценка работы:</h5>
+                        <form id="work-evaluation-form">
+                            <div class="form-group">
+                                <label for="work-score">Оценка (баллы)</label>
+                                <input type="number" id="work-score" class="form-control" min="0" max="10" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="work-comments">Комментарии и замечания</label>
+                                <textarea id="work-comments" class="form-control" rows="4" placeholder="Оставьте комментарии по работе..."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-warning" id="send-revision">Отправить на доработку</button>
+                                <button type="submit" class="btn btn-primary">Принять работу</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/teacher-dashboard.js"></script>
+</body>
+</html>
