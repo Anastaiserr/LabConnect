@@ -219,16 +219,30 @@ function requireAuth(req, res, next) {
     res.status(401).json({ error: 'Требуется аутентификация' });
   }
 }
-
+// CORS middleware
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
 // API маршруты
 
 // Отправка кода подтверждения при регистрации
 app.post('/api/send-verification', async (req, res) => {
-  const { email } = req.body;
+    console.log('=== SEND VERIFICATION REQUEST ===');
+    console.log('Body:', req.body);
+    
+    const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ error: 'Email обязателен' });
-  }
+    if (!email) {
+        console.log('No email provided');
+        return res.status(400).json({ error: 'Email обязателен' });
+    }
 
   try {
     // Проверяем, не зарегистрирован ли уже email

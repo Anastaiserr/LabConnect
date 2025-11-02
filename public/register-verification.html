@@ -174,56 +174,77 @@
             });
 
             // Отправка кода подтверждения
-            sendCodeBtn.addEventListener('click', async function() {
-                const formData = new FormData(document.getElementById('registerStep1Form'));
-                userData = {
-                    username: formData.get('username'),
-                    password: formData.get('password'),
-                    email: formData.get('email'),
-                    firstName: formData.get('firstName'),
-                    lastName: formData.get('lastName'),
-                    role: formData.get('role'),
-                    group: formData.get('group'),
-                    faculty: formData.get('faculty'),
-                    department: formData.get('department'),
-                    position: formData.get('position')
-                };
+sendCodeBtn.addEventListener('click', async function() {
+    const formData = new FormData(document.getElementById('registerStep1Form'));
+    userData = {
+        username: formData.get('username'),
+        password: formData.get('password'),
+        email: formData.get('email'),
+        firstName: formData.get('firstName'),
+        lastName: formData.get('lastName'),
+        role: formData.get('role'),
+        group: formData.get('group'),
+        faculty: formData.get('faculty'),
+        department: formData.get('department'),
+        position: formData.get('position')
+    };
 
-                // Валидация
-                if (!userData.username || !userData.password || !userData.email || 
-                    !userData.firstName || !userData.lastName || !userData.role) {
-                    showAlert('Все обязательные поля должны быть заполнены', 'error');
-                    return;
-                }
+    // Валидация
+    if (!userData.username || !userData.password || !userData.email || 
+        !userData.firstName || !userData.lastName || !userData.role) {
+        showAlert('Все обязательные поля должны быть заполнены', 'error');
+        return;
+    }
 
-                if (userData.password.length < 10) {
-                    showAlert('Пароль должен содержать не менее 10 символов', 'error');
-                    return;
-                }
+    if (userData.password.length < 10) {
+        showAlert('Пароль должен содержать не менее 10 символов', 'error');
+        return;
+    }
 
-                try {
-                    const response = await fetch('/api/send-verification', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ email: userData.email })
-                    });
+    try {
+        // Добавьте полный URL для избежания проблем с путями
+        const baseUrl = window.location.origin;
+        const response = await fetch(baseUrl + '/api/send-verification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: userData.email })
+        });
 
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        userEmail.textContent = userData.email;
-                        step1.style.display = 'none';
-                        step2.style.display = 'block';
-                        showAlert(result.message, 'success');
-                    } else {
-                        showAlert(result.error, 'error');
-                    }
-                } catch (error) {
-                    showAlert('Ошибка сети: ' + error.message, 'error');
-                }
-            });
+        // Проверяем статус ответа перед парсингом JSON
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const text = await response.text();
+        console.log('Raw response:', text); // Для отладки
+        
+        let result;
+        try {
+            result = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            throw new Error('Invalid JSON response from server');
+        }
+        
+        if (result.success) {
+            userEmail.textContent = userData.email;
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+            showAlert(result.message, 'success');
+        } else {
+            showAlert(result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Network error:', error);
+        showAlert('Ошибка сети: ' + error.message, 'error');
+    }
+});
+
+                
+
+                
 
             // Возврат к первому шагу
             backToStep1.addEventListener('click', function() {
