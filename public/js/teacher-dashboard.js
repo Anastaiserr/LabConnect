@@ -1,23 +1,38 @@
 // js/teacher-dashboard.js
+// Функциональность личного кабинета преподавателя
+
 let currentCourseId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ teacher-dashboard.js загружен');
     initTeacherDashboard();
 });
 
 async function initTeacherDashboard() {
+    console.log('🎯 Инициализация личного кабинета преподавателя');
+    
+    // Инициализация вкладок
     initTeacherTabs();
+    
+    // Инициализация модальных окон
     initTeacherModals();
+    
+    // Загрузка данных преподавателя
     await loadTeacherData();
     
     // Загружаем курсы если активна соответствующая вкладка
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab && activeTab.getAttribute('data-tab') === 'disciplines') {
+        console.log('📚 Загружаем курсы...');
         await loadTeacherCourses();
     }
+    
+    console.log('✅ Личный кабинет преподавателя инициализирован');
 }
 
 function initTeacherTabs() {
+    console.log('🔧 Инициализация вкладок');
+    
     const navLinks = document.querySelectorAll('.nav-link');
     
     navLinks.forEach(link => {
@@ -25,6 +40,7 @@ function initTeacherTabs() {
             e.preventDefault();
             
             const tabId = this.getAttribute('data-tab');
+            console.log('🔄 Переключение на вкладку:', tabId);
             
             // Убрать активный класс со всех ссылок и вкладок
             navLinks.forEach(l => l.classList.remove('active'));
@@ -46,41 +62,47 @@ function initTeacherTabs() {
 }
 
 function initTeacherModals() {
-    // Кнопка создания курса
+    console.log('🔧 Инициализация модальных окон');
+    
+    // 1. Кнопка создания курса
     const createCourseBtn = document.getElementById('create-course-btn');
     if (createCourseBtn) {
         createCourseBtn.addEventListener('click', function() {
+            console.log('🎯 Кнопка создания курса нажата');
             document.getElementById('create-course-modal').style.display = 'block';
         });
     }
     
-    // Форма создания курса
+    // 2. Форма создания курса
     const courseCreateForm = document.getElementById('course-create-form');
     if (courseCreateForm) {
         courseCreateForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            console.log('📝 Форма создания курса отправлена');
             createNewCourse();
         });
     }
     
-    // Кнопка создания лабораторной работы
+    // 3. Кнопка создания лабораторной работы в модальном окне управления курсом
     const createLabBtn = document.getElementById('create-lab-btn');
     if (createLabBtn) {
         createLabBtn.addEventListener('click', function() {
+            console.log('🎯 Кнопка создания лабораторной работы нажата');
             openCreateLabModal();
         });
     }
     
-    // Форма создания лабораторной работы
+    // 4. Форма создания лабораторной работы
     const labCreateForm = document.getElementById('lab-create-form');
     if (labCreateForm) {
         labCreateForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            console.log('📝 Форма создания лабораторной работы отправлена');
             createNewLab();
         });
     }
     
-    // Инициализация вкладок в модальном окне управления курсом
+    // 5. Инициализация вкладок в модальном окне управления курсом
     initCourseManagementTabs();
     
     // Закрытие модальных окон
@@ -99,6 +121,8 @@ function initTeacherModals() {
             e.target.style.display = 'none';
         }
     });
+    
+    console.log('✅ Модальные окна инициализированы');
 }
 
 function initCourseManagementTabs() {
@@ -122,14 +146,14 @@ function initCourseManagementTabs() {
             // Загрузить данные для вкладки
             if (tabId === 'labs' && currentCourseId) {
                 loadCourseLabs(currentCourseId);
-            } else if (tabId === 'students' && currentCourseId) {
-                loadCourseStudents(currentCourseId);
             }
         });
     });
 }
 
 async function loadTeacherTabData(tabId) {
+    console.log('📂 Загрузка данных для вкладки:', tabId);
+    
     switch(tabId) {
         case 'disciplines':
             await loadTeacherCourses();
@@ -137,75 +161,120 @@ async function loadTeacherTabData(tabId) {
         case 'check-works':
             await loadWorksToCheck();
             break;
+        case 'statements':
+            loadStatementData();
+            break;
+        case 'settings':
+            loadSettingsData();
+            break;
+        case 'chat':
+            loadTeacherChats();
+            break;
     }
 }
 
 async function loadTeacherData() {
     try {
+        console.log('👤 Загрузка данных преподавателя...');
         const response = await fetch('/api/user', {
             credentials: 'include'
         });
         
         if (response.ok) {
             const data = await response.json();
-            updateTeacherUI(data.user);
+            console.log('✅ Данные преподавателя загружены:', data.user);
+            
+            // Обновляем данные на странице
+            if (data.user) {
+                document.getElementById('teacher-name').textContent = data.user.firstName + ' ' + data.user.lastName;
+                document.getElementById('teacher-department').textContent = 'Кафедра: ' + (data.user.department || 'Не указана');
+                
+                // Обновляем данные в профиле
+                document.getElementById('teacher-firstname').textContent = data.user.firstName;
+                document.getElementById('teacher-lastname').textContent = data.user.lastName;
+                document.getElementById('teacher-email').textContent = data.user.email;
+                document.getElementById('teacher-department-detail').textContent = data.user.department || 'Не указана';
+                document.getElementById('teacher-position').textContent = data.user.position || 'Не указана';
+            }
+        } else {
+            console.error('❌ Ошибка загрузки данных пользователя');
         }
     } catch (error) {
-        console.error('Ошибка загрузки данных преподавателя:', error);
+        console.error('❌ Ошибка загрузки данных преподавателя:', error);
     }
 }
 
-function updateTeacherUI(user) {
-    // Обновляем информацию на странице
-    const teacherNameElements = document.querySelectorAll('#teacher-name, #teacher-firstname');
-    teacherNameElements.forEach(el => {
-        if (el.id === 'teacher-name') {
-            el.textContent = user.firstName + ' ' + user.lastName;
-        } else if (el.id === 'teacher-firstname') {
-            el.textContent = user.firstName;
-        }
-    });
-    
-    document.getElementById('teacher-lastname').textContent = user.lastName;
-    document.getElementById('teacher-email').textContent = user.email;
-    document.getElementById('teacher-department-detail').textContent = user.department || 'Не указана';
-    document.getElementById('teacher-position').textContent = user.position || 'Не указана';
-}
-
+// Загрузка курсов преподавателя
 async function loadTeacherCourses() {
     try {
         const coursesList = document.getElementById('courses-list');
+        
+        console.log('🔄 Загрузка курсов преподавателя...');
+        
+        if (!coursesList) {
+            console.error('❌ Элемент courses-list не найден');
+            return;
+        }
+        
+        // Показываем загрузку
         coursesList.innerHTML = '<div class="loading">Загрузка курсов...</div>';
         
         const response = await fetch('/api/teacher/courses', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             credentials: 'include'
         });
 
-        if (response.ok) {
-            const result = await response.json();
+        console.log('📊 Статус ответа:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Получены курсы:', result);
+        
+        if (result.courses && result.courses.length > 0) {
             displayTeacherCourses(result.courses);
         } else {
-            throw new Error('Ошибка загрузки курсов');
+            coursesList.innerHTML = `
+                <div class="no-courses">
+                    <h4>Курсы не найдены</h4>
+                    <p>У вас пока нет созданных курсов</p>
+                    <p>Создайте первый курс, нажав кнопку "Создать новый курс"</p>
+                </div>
+            `;
         }
+        
     } catch (error) {
-        console.error('Ошибка загрузки курсов:', error);
+        console.error('❌ Ошибка загрузки курсов:', error);
         const coursesList = document.getElementById('courses-list');
-        coursesList.innerHTML = `
-            <div class="error-message">
-                <p>Ошибка загрузки курсов: ${error.message}</p>
-                <button class="btn btn-secondary" onclick="loadTeacherCourses()">Повторить попытку</button>
-            </div>
-        `;
+        if (coursesList) {
+            coursesList.innerHTML = `
+                <div class="error-message">
+                    <h4>Ошибка загрузки</h4>
+                    <p>${error.message}</p>
+                    <button class="btn btn-secondary" onclick="loadTeacherCourses()">Повторить попытку</button>
+                </div>
+            `;
+        }
     }
 }
 
+// Отображение курсов
 function displayTeacherCourses(courses) {
     const container = document.getElementById('courses-list');
+    
+    if (!container) {
+        console.error('❌ Контейнер курсов не найден');
+        return;
+    }
     
     if (!courses || courses.length === 0) {
         container.innerHTML = `
             <div class="no-courses">
-                <h4>Курсы не найдены</h4>
                 <p>У вас пока нет созданных курсов</p>
                 <p>Создайте первый курс, нажав кнопку "Создать новый курс"</p>
             </div>
@@ -218,10 +287,10 @@ function displayTeacherCourses(courses) {
             <div class="course-header">
                 <h4 class="course-title">${course.name}</h4>
                 <div class="course-actions">
-                    <button class="btn btn-outline btn-sm" onclick="copyInviteCode('${course.invite_code}')">
-                        Код приглашения
+                    <button class="btn btn-secondary btn-sm edit-course" data-course-id="${course.id}">
+                        Редактировать
                     </button>
-                    <button class="btn btn-primary btn-sm manage-course" onclick="openCourseManagement(${course.id})">
+                    <button class="btn btn-primary btn-sm manage-course" data-course-id="${course.id}">
                         Управление
                     </button>
                 </div>
@@ -230,24 +299,28 @@ function displayTeacherCourses(courses) {
                 <span><strong>Дисциплина:</strong> ${course.discipline}</span>
                 ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
                 <span><strong>Создан:</strong> ${formatDate(course.created_at)}</span>
+                ${course.password ? `<span><strong>Пароль доступа:</strong> ${course.password}</span>` : ''}
             </div>
             <div class="course-stats">
                 <span>Лабораторных работ: <strong id="lab-count-${course.id}">0</strong></span>
-                <span>Студентов: <strong id="student-count-${course.id}">0</strong></span>
+                <span>Студентов: <strong>0</strong></span>
             </div>
         </div>
     `).join('');
     
-    // Загружаем количество лабораторных работ и студентов для каждого курса
+    // Добавляем обработчики событий для кнопок
+    addCourseEventHandlers();
+    
+    // Загружаем количество лабораторных работ для каждого курса
     courses.forEach(course => {
         loadCourseLabsCount(course.id);
-        loadCourseStudentsCount(course.id);
     });
 }
 
+// Загрузка количества лабораторных работ для курса
 async function loadCourseLabsCount(courseId) {
     try {
-        const response = await fetch(`/api/courses/${courseId}/labs`, {
+        const response = await fetch(`/api/courses/${courseId}/labs/count`, {
             credentials: 'include'
         });
         
@@ -255,73 +328,39 @@ async function loadCourseLabsCount(courseId) {
             const result = await response.json();
             const countElement = document.getElementById(`lab-count-${courseId}`);
             if (countElement) {
-                countElement.textContent = result.labs ? result.labs.length : 0;
+                countElement.textContent = result.count || 0;
             }
         }
     } catch (error) {
-        console.error('Ошибка загрузки количества лабораторных работ:', error);
+        console.error('❌ Ошибка загрузки количества лабораторных работ:', error);
     }
 }
 
-async function loadCourseStudentsCount(courseId) {
-    try {
-        const response = await fetch(`/api/courses/${courseId}/students`, {
-            credentials: 'include'
+// Обработчики событий для кнопок курсов
+function addCourseEventHandlers() {
+    // Кнопка "Управление"
+    document.querySelectorAll('.manage-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            openCourseManagement(courseId);
         });
-        
-        if (response.ok) {
-            const result = await response.json();
-            const countElement = document.getElementById(`student-count-${courseId}`);
-            if (countElement) {
-                countElement.textContent = result.students ? result.students.length : 0;
-            }
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки количества студентов:', error);
-    }
-}
-
-async function createNewCourse() {
-    const form = document.getElementById('course-create-form');
-    const formData = new FormData(form);
+    });
     
-    const courseData = {
-        name: formData.get('course-name'),
-        description: formData.get('course-description'),
-        discipline: formData.get('course-discipline'),
-        password: formData.get('course-password') || null
-    };
-    
-    try {
-        const response = await fetch('/api/courses', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(courseData)
+    // Кнопка "Редактировать"
+    document.querySelectorAll('.edit-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            editCourse(courseId);
         });
-
-        const result = await response.json();
-        
-        if (response.ok) {
-            showAlert(result.message, 'success');
-            document.getElementById('create-course-modal').style.display = 'none';
-            form.reset();
-            await loadTeacherCourses();
-        } else {
-            throw new Error(result.error || 'Ошибка создания курса');
-        }
-    } catch (error) {
-        console.error('Ошибка создания курса:', error);
-        showAlert('Ошибка создания курса: ' + error.message, 'error');
-    }
+    });
 }
 
+// Открытие управления курсом
 async function openCourseManagement(courseId) {
     currentCourseId = courseId;
     
     try {
+        // Загружаем информацию о курсе
         const response = await fetch(`/api/courses/${courseId}`, {
             credentials: 'include'
         });
@@ -330,23 +369,28 @@ async function openCourseManagement(courseId) {
             const result = await response.json();
             const course = result.course;
             
+            // Обновляем заголовок модального окна
             document.getElementById('manage-course-title').textContent = `Управление курсом: ${course.name}`;
-            document.getElementById('course-invite-code').textContent = course.invite_code;
             
+            // Показываем модальное окно
             document.getElementById('manage-course-modal').style.display = 'block';
             
+            // Загружаем лабораторные работы курса
             await loadCourseLabs(courseId);
-            await loadCourseStudents(courseId);
         }
     } catch (error) {
-        console.error('Ошибка загрузки данных курса:', error);
+        console.error('❌ Ошибка загрузки данных курса:', error);
         showAlert('Ошибка загрузки данных курса', 'error');
     }
 }
 
+// Загрузка лабораторных работ курса
 async function loadCourseLabs(courseId) {
     try {
         const labsList = document.getElementById('course-labs-list');
+        
+        if (!labsList) return;
+        
         labsList.innerHTML = '<div class="loading">Загрузка лабораторных работ...</div>';
         
         const response = await fetch(`/api/courses/${courseId}/labs`, {
@@ -360,18 +404,23 @@ async function loadCourseLabs(courseId) {
             throw new Error('Ошибка загрузки лабораторных работ');
         }
     } catch (error) {
-        console.error('Ошибка загрузки лабораторных работ:', error);
+        console.error('❌ Ошибка загрузки лабораторных работ:', error);
         const labsList = document.getElementById('course-labs-list');
-        labsList.innerHTML = `
-            <div class="error-message">
-                <p>Ошибка загрузки лабораторных работ: ${error.message}</p>
-            </div>
-        `;
+        if (labsList) {
+            labsList.innerHTML = `
+                <div class="error-message">
+                    <p>Ошибка загрузки лабораторных работ: ${error.message}</p>
+                </div>
+            `;
+        }
     }
 }
 
+// Отображение лабораторных работ курса
 function displayCourseLabs(labs) {
     const container = document.getElementById('course-labs-list');
+    
+    if (!container) return;
     
     if (!labs || labs.length === 0) {
         container.innerHTML = `
@@ -392,133 +441,36 @@ function displayCourseLabs(labs) {
                 </span>
             </div>
             <div class="lab-meta">
-                <span><strong>Начало:</strong> ${lab.start_date ? formatDateTime(lab.start_date) : 'Не указано'}</span>
-                <span><strong>Дедлайн:</strong> ${lab.deadline ? formatDateTime(lab.deadline) : 'Не указано'}</span>
+                <span><strong>Начало:</strong> ${formatDateTime(lab.start_date)}</span>
+                <span><strong>Дедлайн:</strong> ${formatDateTime(lab.deadline)}</span>
                 <span><strong>Макс. балл:</strong> ${lab.max_score}</span>
             </div>
             <div class="lab-description">
                 <p>${lab.description}</p>
             </div>
             <div class="lab-actions">
-                <button class="btn btn-secondary btn-sm" onclick="editLab(${lab.id})">
+                <button class="btn btn-secondary btn-sm edit-lab" data-lab-id="${lab.id}">
                     Редактировать
                 </button>
-                <button class="btn btn-primary btn-sm" onclick="viewLabSubmissions(${lab.id})">
+                <button class="btn btn-primary btn-sm view-submissions" data-lab-id="${lab.id}">
                     Работы студентов
+                </button>
+                <button class="btn btn-danger btn-sm delete-lab" data-lab-id="${lab.id}">
+                    Удалить
                 </button>
             </div>
         </div>
     `).join('');
 }
 
-async function loadCourseStudents(courseId) {
-    try {
-        const studentsList = document.getElementById('students-tab');
-        studentsList.innerHTML = '<div class="loading">Загрузка студентов...</div>';
-        
-        const response = await fetch(`/api/courses/${courseId}/students`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            displayCourseStudents(result.students || []);
-        } else {
-            throw new Error('Ошибка загрузки студентов');
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки студентов:', error);
-        const studentsList = document.getElementById('students-tab');
-        studentsList.innerHTML = `
-            <div class="error-message">
-                <p>Ошибка загрузки студентов: ${error.message}</p>
-            </div>
-        `;
-    }
-}
-
-function displayCourseStudents(students) {
-    const container = document.getElementById('students-tab');
-    
-    if (!students || students.length === 0) {
-        container.innerHTML = `
-            <div class="no-students">
-                <p>Студенты не найдены</p>
-                <p>Отправьте студентам код приглашения для присоединения к курсу</p>
-                <div class="invite-section">
-                    <p><strong>Код приглашения:</strong></p>
-                    <div class="invite-code">
-                        <code id="students-invite-code-display">Загрузка...</code>
-                        <button class="btn btn-outline btn-sm" onclick="copyInviteCodeFromStudents()">
-                            Копировать
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        updateStudentsInviteCode();
-        return;
-    }
-    
-    container.innerHTML = `
-        <div class="students-header">
-            <h4>Студенты курса (${students.length})</h4>
-            <div class="invite-section">
-                <span>Код приглашения:</span>
-                <div class="invite-code">
-                    <code id="students-invite-code-display">Загрузка...</code>
-                    <button class="btn btn-outline btn-sm" onclick="copyInviteCodeFromStudents()">
-                        Копировать
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="students-list">
-            ${students.map(student => `
-                <div class="student-item">
-                    <div class="student-info">
-                        <h5>${student.first_name} ${student.last_name}</h5>
-                        <p>${student.email}</p>
-                        <p>${student.group_name ? `Группа: ${student.group_name}` : ''} ${student.faculty ? ` • ${student.faculty}` : ''}</p>
-                    </div>
-                    <div class="student-meta">
-                        <span>Присоединился: ${formatDate(student.joined_at)}</span>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    updateStudentsInviteCode();
-}
-
-async function updateStudentsInviteCode() {
-    if (!currentCourseId) return;
-    
-    try {
-        const response = await fetch(`/api/courses/${currentCourseId}`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const inviteCodeElement = document.getElementById('students-invite-code-display');
-            if (inviteCodeElement) {
-                inviteCodeElement.textContent = data.course.invite_code;
-            }
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки кода приглашения:', error);
-    }
-}
-
+// Функция для открытия модального окна создания лабораторной работы
 function openCreateLabModal() {
+    const modal = document.getElementById('create-lab-modal');
+    
     if (!currentCourseId) {
-        showAlert('Сначала выберите курс', 'error');
+        showAlert('Ошибка: курс не выбран', 'error');
         return;
     }
-    
-    const modal = document.getElementById('create-lab-modal');
     
     // Устанавливаем текущую дату и время по умолчанию
     const now = new Date();
@@ -531,10 +483,20 @@ function openCreateLabModal() {
     modal.style.display = 'block';
 }
 
+// Функция создания новой лабораторной работы
 async function createNewLab() {
     const form = document.getElementById('lab-create-form');
-    const formData = new FormData(form);
+    if (!form) {
+        console.error('❌ Форма создания лабораторной работы не найдена');
+        return;
+    }
     
+    if (!currentCourseId) {
+        showAlert('Ошибка: курс не выбран', 'error');
+        return;
+    }
+    
+    const formData = new FormData(form);
     const labData = {
         name: formData.get('lab-name'),
         course_id: currentCourseId,
@@ -547,6 +509,23 @@ async function createNewLab() {
         requirements: formData.get('lab-requirements') || null
     };
     
+    console.log('🔄 Создание лабораторной работы:', labData);
+    
+    // Валидация
+    if (!labData.name || !labData.description) {
+        showAlert('Название и описание обязательны для заполнения', 'error');
+        return;
+    }
+    
+    // Проверка дат
+    const startDate = new Date(labData.start_date);
+    const deadline = new Date(labData.deadline);
+    
+    if (deadline <= startDate) {
+        showAlert('Дедлайн должен быть позже даты начала', 'error');
+        return;
+    }
+
     try {
         const response = await fetch('/api/labs', {
             method: 'POST',
@@ -557,36 +536,80 @@ async function createNewLab() {
             body: JSON.stringify(labData)
         });
 
-        const result = await response.json();
+        console.log('📊 Статус создания лабораторной работы:', response.status);
         
-        if (response.ok) {
-            showAlert(result.message, 'success');
-            document.getElementById('create-lab-modal').style.display = 'none';
-            form.reset();
-            await loadCourseLabs(currentCourseId);
-            await loadCourseLabsCount(currentCourseId);
-        } else {
-            throw new Error(result.error || 'Ошибка создания лабораторной работы');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка создания лабораторной работы');
         }
+
+        const result = await response.json();
+        console.log('✅ Лабораторная работа создана:', result);
+        
+        showAlert(result.message, 'success');
+        document.getElementById('create-lab-modal').style.display = 'none';
+        form.reset();
+        
+        // Перезагружаем список лабораторных работ
+        await loadCourseLabs(currentCourseId);
+        await loadCourseLabsCount(currentCourseId);
+        
     } catch (error) {
-        console.error('Ошибка создания лабораторной работы:', error);
+        console.error('❌ Ошибка создания лабораторной работы:', error);
         showAlert('Ошибка создания лабораторной работы: ' + error.message, 'error');
     }
 }
 
-function copyInviteCode(inviteCode) {
-    navigator.clipboard.writeText(inviteCode).then(() => {
-        showAlert('Код приглашения скопирован', 'success');
-    }).catch(err => {
-        console.error('Ошибка копирования:', err);
-        showAlert('Ошибка копирования', 'error');
-    });
-}
+// Создание нового курса
+async function createNewCourse() {
+    const form = document.getElementById('course-create-form');
+    const formData = new FormData(form);
+    
+    const courseData = {
+        name: formData.get('course-name'),
+        description: formData.get('course-description'),
+        discipline: formData.get('course-discipline'),
+        password: formData.get('course-password') || null
+    };
+    
+    console.log('🔄 Создание курса:', courseData);
+    
+    // Валидация
+    if (!courseData.name || !courseData.discipline) {
+        showAlert('Название и дисциплина обязательны для заполнения', 'error');
+        return;
+    }
 
-function copyInviteCodeFromStudents() {
-    const inviteCodeElement = document.getElementById('students-invite-code-display');
-    if (inviteCodeElement) {
-        copyInviteCode(inviteCodeElement.textContent);
+    try {
+        const response = await fetch('/api/courses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(courseData)
+        });
+
+        console.log('📊 Статус создания курса:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка создания курса');
+        }
+
+        const result = await response.json();
+        console.log('✅ Курс создан:', result);
+        
+        showAlert(result.message, 'success');
+        document.getElementById('create-course-modal').style.display = 'none';
+        form.reset();
+        
+        // Перезагружаем список курсов
+        await loadTeacherCourses();
+        
+    } catch (error) {
+        console.error('❌ Ошибка создания курса:', error);
+        showAlert('Ошибка создания курса: ' + error.message, 'error');
     }
 }
 
@@ -617,11 +640,11 @@ function formatDateTimeLocal(date) {
 
 function getLabStatus(lab) {
     const now = new Date();
-    const startDate = lab.start_date ? new Date(lab.start_date) : null;
-    const deadline = lab.deadline ? new Date(lab.deadline) : null;
+    const startDate = new Date(lab.start_date);
+    const deadline = new Date(lab.deadline);
     
-    if (startDate && now < startDate) return 'upcoming';
-    if (deadline && now > deadline) return 'completed';
+    if (now < startDate) return 'upcoming';
+    if (now > deadline) return 'completed';
     return 'active';
 }
 
@@ -635,6 +658,8 @@ function getLabStatusText(status) {
 }
 
 function showAlert(message, type = 'info') {
+    console.log(`📢 Уведомление [${type}]:`, message);
+    
     // Удаляем существующие уведомления
     const existingAlerts = document.querySelectorAll('.alert');
     existingAlerts.forEach(alert => alert.remove());
@@ -675,14 +700,23 @@ function showAlert(message, type = 'info') {
 }
 
 // Заглушки для остальных функций
-function editLab(labId) {
-    showAlert('Функция редактирования в разработке', 'info');
-}
-
-function viewLabSubmissions(labId) {
-    showAlert('Функция просмотра работ в разработке', 'info');
+function editCourse(courseId) {
+    console.log('✏️ Редактирование курса:', courseId);
+    showAlert('Функция редактирования курса в разработке', 'info');
 }
 
 async function loadWorksToCheck() {
-    console.log('Загрузка работ для проверки...');
+    console.log('📝 Загрузка работ для проверки...');
+}
+
+function loadStatementData() {
+    console.log('📊 Загрузка данных для ведомостей...');
+}
+
+function loadSettingsData() {
+    console.log('⚙️ Загрузка настроек...');
+}
+
+function loadTeacherChats() {
+    console.log('💬 Загрузка чатов...');
 }

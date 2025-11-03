@@ -3,9 +3,11 @@ const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
+const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const app = express();
 
+// Порт из переменной окружения
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -15,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Настройка сессий
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'labconnect-secret-key-2024',
+  secret: process.env.SESSION_SECRET || 'labconnect-render-secret-key-2024',
   resave: false,
   saveUninitialized: false,
   cookie: { 
@@ -24,10 +26,24 @@ app.use(session({
   }
 }));
 
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Подключение к PostgreSQL
 const db = new Client({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/labconnect',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Функция подключения к базе данных
@@ -39,8 +55,7 @@ async function connectDatabase() {
     await createTestData();
   } catch (err) {
     console.error('❌ Ошибка подключения к PostgreSQL:', err);
-    // Для разработки - продолжаем без базы данных
-    console.log('⚠️  Продолжаем в режиме без базы данных');
+    process.exit(1);
   }
 }
 
@@ -54,6 +69,7 @@ async function initDatabase() {
         username VARCHAR(50) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
+        email_verified BOOLEAN DEFAULT true,
         first_name VARCHAR(50) NOT NULL,
         last_name VARCHAR(50) NOT NULL,
         role VARCHAR(10) NOT NULL CHECK(role IN ('student', 'teacher')),
@@ -64,6 +80,7 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✅ Таблица users готова');
 
     // Таблица для курсов
     await db.query(`
@@ -74,21 +91,14 @@ async function initDatabase() {
         discipline VARCHAR(100) NOT NULL,
         password VARCHAR(255),
         teacher_id INTEGER REFERENCES users(id),
-        invite_code VARCHAR(50) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✅ Таблица courses готова');
 
-    // Таблица для связи студентов с курсами
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS course_students (
-        id SERIAL PRIMARY KEY,
-        course_id INTEGER REFERENCES courses(id),
-        student_id INTEGER REFERENCES users(id),
-        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(course_id, student_id)
-      )
-    `);
+    // Проверим существующие курсы
+    const coursesCheck = await db.query('SELECT COUNT(*) as count FROM courses');
+    console.log(`📊 В таблице courses: ${coursesCheck.rows[0].count} записей`);
 
     // Таблица для лабораторных работ
     await db.query(`
@@ -98,14 +108,30 @@ async function initDatabase() {
         description TEXT,
         course_id INTEGER REFERENCES courses(id),
         template_code TEXT,
-        start_date TIMESTAMP,
         deadline TIMESTAMP,
         max_score INTEGER DEFAULT 10,
-        attempts INTEGER DEFAULT 1,
-        requirements TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✅ Таблица labs готова');
+
+    // Таблица для сданных работ
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS submissions (
+        id SERIAL PRIMARY KEY,
+        lab_id INTEGER REFERENCES labs(id),
+        student_id INTEGER REFERENCES users(id),
+        files TEXT,
+        code TEXT,
+        comment TEXT,
+        score INTEGER,
+        teacher_comment TEXT,
+        status VARCHAR(20) DEFAULT 'pending' CHECK(status IN ('pending', 'checked', 'revision')),
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        checked_at TIMESTAMP
+      )
+    `);
+    console.log('✅ Таблица submissions готова');
 
     console.log('✅ Все таблицы базы данных инициализированы');
   } catch (err) {
@@ -128,19 +154,23 @@ async function createTestData() {
       
       // Создаем тестового преподавателя
       await db.query(
-        `INSERT INTO users (username, password, email, first_name, last_name, role, department, position) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        ['teacher', teacherPassword, 'teacher@astu.ru', 'Николай', 'Измайлов', 'teacher', 'АСОПУ', 'Преподаватель']
+        `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, department, position) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        ['teacher', teacherPassword, 'teacher@astu.ru', true, 'Николай', 'Измайлов', 'teacher', 'АСОПУ', 'Преподаватель']
       );
       
       // Создаем тестового студента
       await db.query(
-        `INSERT INTO users (username, password, email, first_name, last_name, role, group_name, faculty) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        ['student', studentPassword, 'student@astu.ru', 'Александр', 'Бондаренко', 'student', 'ДИПР6-31', 'Институт информационных технологий']
+        `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, group_name, faculty) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        ['student', studentPassword, 'student@astu.ru', true, 'Александр', 'Бондаренко', 'student', 'ДИПР6-31', 'Институт информационных технологий']
       );
       
       console.log('✅ Тестовые данные созданы');
+      console.log('👨‍🏫 Преподаватель: teacher / teacher12345');
+      console.log('👨‍🎓 Студент: student / student12345');
+    } else {
+      console.log('✅ В базе уже есть пользователи');
     }
   } catch (err) {
     console.error('❌ Ошибка создания тестовых данных:', err);
@@ -158,10 +188,13 @@ function requireAuth(req, res, next) {
 
 // API маршруты
 
-// Регистрация
+// Простая регистрация без подтверждения email
 app.post('/api/register-simple', async (req, res) => {
+  console.log('=== ПРОСТАЯ РЕГИСТРАЦИЯ ===');
+  
   const { username, password, email, firstName, lastName, role, group, faculty, department, position } = req.body;
 
+  // Валидация
   if (!username || !password || !email || !firstName || !lastName || !role) {
     return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
   }
@@ -186,24 +219,28 @@ app.post('/api/register-simple', async (req, res) => {
 
     // Создание пользователя
     const result = await db.query(
-      `INSERT INTO users (username, password, email, first_name, last_name, role, group_name, faculty, department, position) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, username, email, first_name, last_name, role`,
-      [username, hashedPassword, email, firstName, lastName, role, group, faculty, department, position]
+      `INSERT INTO users (username, password, email, email_verified, first_name, last_name, role, group_name, faculty, department, position) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+      [username, hashedPassword, email, true, firstName, lastName, role, group || null, faculty || null, department || null, position || null]
     );
+    
+    console.log('✅ Пользователь создан с ID:', result.rows[0].id);
     
     res.json({ 
       success: true, 
-      message: 'Пользователь успешно зарегистрирован',
-      user: result.rows[0]
+      message: 'Пользователь успешно зарегистрирован. Теперь вы можете войти.',
+      userId: result.rows[0].id
     });
   } catch (error) {
     console.error('Ошибка регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
   }
 });
 
 // Вход
 app.post('/api/login', async (req, res) => {
+  console.log('=== ВХОД ===');
+  
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -217,12 +254,16 @@ app.post('/api/login', async (req, res) => {
     );
     
     if (result.rows.length === 0) {
+      console.log('❌ Пользователь не найден:', username);
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
     const user = result.rows[0];
+    console.log('Найден пользователь:', user.username, 'ID:', user.id);
+
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      console.log('❌ Неверный пароль для пользователя:', username);
       return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
@@ -239,6 +280,8 @@ app.post('/api/login', async (req, res) => {
       department: user.department,
       position: user.position
     };
+
+    console.log('✅ Пользователь вошел:', req.session.user);
     
     res.json({ 
       success: true, 
@@ -247,16 +290,21 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка входа:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: 'Ошибка базы данных' });
   }
 });
 
 // Выход
 app.post('/api/logout', (req, res) => {
+  console.log('=== ВЫХОД ===');
+  
   req.session.destroy((err) => {
     if (err) {
+      console.error('Ошибка выхода:', err);
       return res.status(500).json({ error: 'Ошибка при выходе' });
     }
+    
+    console.log('✅ Сессия уничтожена');
     res.json({ success: true, message: 'Выход выполнен успешно' });
   });
 });
@@ -270,220 +318,334 @@ app.get('/api/user', (req, res) => {
   }
 });
 
-// Получение курсов преподавателя
-app.get('/api/teacher/courses', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Доступ только для преподавателей' });
+// Обновление профиля
+app.put('/api/profile', requireAuth, async (req, res) => {
+  const { firstName, lastName, group, faculty, department, position } = req.body;
+  const userId = req.session.user.id;
+
+  try {
+    await db.query(
+      `UPDATE users SET 
+        first_name = COALESCE($1, first_name),
+        last_name = COALESCE($2, last_name),
+        group_name = COALESCE($3, group_name),
+        faculty = COALESCE($4, faculty),
+        department = COALESCE($5, department),
+        position = COALESCE($6, position)
+      WHERE id = $7`,
+      [firstName, lastName, group, faculty, department, position, userId]
+    );
+
+    // Обновляем данные в сессии
+    if (firstName) req.session.user.firstName = firstName;
+    if (lastName) req.session.user.lastName = lastName;
+    if (group) req.session.user.group = group;
+    if (faculty) req.session.user.faculty = faculty;
+    if (department) req.session.user.department = department;
+    if (position) req.session.user.position = position;
+
+    res.json({ 
+      success: true, 
+      message: 'Профиль успешно обновлен',
+      user: req.session.user
+    });
+  } catch (error) {
+    console.error('Ошибка обновления профиля:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении профиля' });
+  }
+});
+
+// Смена логина (username)
+app.put('/api/change-username', requireAuth, async (req, res) => {
+  const { newUsername, password } = req.body;
+  const userId = req.session.user.id;
+
+  if (!newUsername || !password) {
+    return res.status(400).json({ error: 'Новый логин и пароль обязательны' });
   }
 
   try {
+    // Сначала проверяем пароль
     const result = await db.query(
-      'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
-      [req.session.user.id]
+      'SELECT password FROM users WHERE id = $1', 
+      [userId]
     );
-    
-    res.json({ courses: result.rows });
+
+    const user = result.rows[0];
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Неверный пароль' });
+    }
+
+    // Проверяем, не занят ли новый логин
+    const existingUser = await db.query(
+      'SELECT id FROM users WHERE username = $1 AND id != $2', 
+      [newUsername, userId]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Этот логин уже занят' });
+    }
+
+    // Обновляем логин
+    await db.query(
+      'UPDATE users SET username = $1 WHERE id = $2',
+      [newUsername, userId]
+    );
+
+    // Обновляем в сессии
+    req.session.user.username = newUsername;
+
+    res.json({ 
+      success: true, 
+      message: 'Логин успешно изменен',
+      user: req.session.user
+    });
   } catch (error) {
-    console.error('Ошибка получения курсов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Ошибка смены логина:', error);
+    res.status(500).json({ error: 'Ошибка при смене логина' });
   }
+});
+
+// Смена пароля
+app.put('/api/change-password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.session.user.id;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Текущий и новый пароль обязательны' });
+  }
+
+  if (newPassword.length < 10) {
+    return res.status(400).json({ error: 'Новый пароль должен содержать не менее 10 символов' });
+  }
+
+  try {
+    // Проверяем текущий пароль
+    const result = await db.query(
+      'SELECT password FROM users WHERE id = $1', 
+      [userId]
+    );
+
+    const user = result.rows[0];
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Неверный текущий пароль' });
+    }
+
+    // Хешируем новый пароль
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Обновляем пароль
+    await db.query(
+      'UPDATE users SET password = $1 WHERE id = $2',
+      [hashedNewPassword, userId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Пароль успешно изменен'
+    });
+  } catch (error) {
+    console.error('Ошибка смены пароля:', error);
+    res.status(500).json({ error: 'Ошибка при смене пароля' });
+  }
+});
+
+// Удаление профиля
+app.delete('/api/profile', requireAuth, async (req, res) => {
+  const { password } = req.body;
+  const userId = req.session.user.id;
+
+  if (!password) {
+    return res.status(400).json({ error: 'Пароль обязателен для удаления профиля' });
+  }
+
+  try {
+    // Проверяем пароль
+    const result = await db.query(
+      'SELECT password FROM users WHERE id = $1', 
+      [userId]
+    );
+
+    const user = result.rows[0];
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Неверный пароль' });
+    }
+
+    // Удаляем пользователя и все связанные данные
+    await db.query('DELETE FROM submissions WHERE student_id = $1', [userId]);
+    await db.query('DELETE FROM labs WHERE course_id IN (SELECT id FROM courses WHERE teacher_id = $1)', [userId]);
+    await db.query('DELETE FROM courses WHERE teacher_id = $1', [userId]);
+    await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    // Уничтожаем сессию
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Ошибка уничтожения сессии:', err);
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Профиль успешно удален' 
+    });
+  } catch (error) {
+    console.error('Ошибка удаления профиля:', error);
+    res.status(500).json({ error: 'Ошибка при удалении профиля' });
+  }
+});
+// Получение курсов преподавателя
+app.get('/api/teacher/courses', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
+
+    try {
+        const result = await db.query(
+            'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
+            [req.session.user.id]
+        );
+        
+        console.log(`📊 Найдено курсов: ${result.rows.length}`);
+        res.json({ courses: result.rows });
+    } catch (error) {
+        console.error('❌ Ошибка получения курсов:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
 });
 
 // Создание курса
 app.post('/api/courses', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Доступ только для преподавателей' });
-  }
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
 
-  const { name, description, discipline, password } = req.body;
+    const { name, description, discipline, password } = req.body;
 
-  if (!name || !discipline) {
-    return res.status(400).json({ error: 'Название и дисциплина обязательны' });
-  }
+    if (!name || !discipline) {
+        return res.status(400).json({ error: 'Название и дисциплина обязательны' });
+    }
 
-  try {
-    // Генерируем уникальный код приглашения
-    const inviteCode = crypto.randomBytes(8).toString('hex');
-
-    const result = await db.query(
-      `INSERT INTO courses (name, description, discipline, password, teacher_id, invite_code) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, description, discipline, password, req.session.user.id, inviteCode]
-    );
-    
-    res.json({ 
-      success: true, 
-      message: 'Курс успешно создан',
-      course: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Ошибка создания курса:', error);
-    res.status(500).json({ error: 'Ошибка при создании курса' });
-  }
+    try {
+        const result = await db.query(
+            `INSERT INTO courses (name, description, discipline, password, teacher_id) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, discipline, password, created_at`,
+            [name, description, discipline, password, req.session.user.id]
+        );
+        
+        console.log('✅ Курс создан с ID:', result.rows[0].id);
+        
+        res.json({ 
+            success: true, 
+            message: 'Курс успешно создан',
+            course: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Ошибка создания курса:', error);
+        res.status(500).json({ error: 'Ошибка при создании курса: ' + error.message });
+    }
 });
+
+
 
 // Получение информации о курсе
 app.get('/api/courses/:id', requireAuth, async (req, res) => {
-  try {
-    const result = await db.query(
-      'SELECT * FROM courses WHERE id = $1',
-      [req.params.id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Курс не найден' });
+    try {
+        const result = await db.query(
+            'SELECT * FROM courses WHERE id = $1 AND teacher_id = $2',
+            [req.params.id, req.session.user.id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+        
+        res.json({ course: result.rows[0] });
+    } catch (error) {
+        console.error('❌ Ошибка получения курса:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
     }
-    
-    res.json({ course: result.rows[0] });
-  } catch (error) {
-    console.error('Ошибка получения курса:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
 });
 
 // Получение лабораторных работ курса
 app.get('/api/courses/:id/labs', requireAuth, async (req, res) => {
-  try {
-    const result = await db.query(
-      'SELECT * FROM labs WHERE course_id = $1 ORDER BY created_at DESC',
-      [req.params.id]
-    );
-    
-    res.json({ labs: result.rows });
-  } catch (error) {
-    console.error('Ошибка получения лабораторных работ:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
+    try {
+        // Проверяем, принадлежит ли курс преподавателю
+        const courseCheck = await db.query(
+            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
+            [req.params.id, req.session.user.id]
+        );
 
-// Создание лабораторной работы
-app.post('/api/labs', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Доступ только для преподавателей' });
-  }
+        if (courseCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
 
-  const { name, course_id, description, template_code, start_date, deadline, max_score, attempts, requirements } = req.body;
-
-  if (!name || !course_id || !description) {
-    return res.status(400).json({ error: 'Название, ID курса и описание обязательны' });
-  }
-
-  try {
-    const result = await db.query(
-      `INSERT INTO labs (title, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [name, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements]
-    );
-    
-    res.json({ 
-      success: true, 
-      message: 'Лабораторная работа успешно создана',
-      lab: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Ошибка создания лабораторной работы:', error);
-    res.status(500).json({ error: 'Ошибка при создании лабораторной работы' });
-  }
-});
-
-// Получение студентов курса
-app.get('/api/courses/:id/students', requireAuth, async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.group_name, u.faculty, cs.joined_at
-      FROM users u
-      JOIN course_students cs ON u.id = cs.student_id
-      WHERE cs.course_id = $1
-      ORDER BY u.last_name, u.first_name
-    `, [req.params.id]);
-    
-    res.json({ students: result.rows });
-  } catch (error) {
-    console.error('Ошибка получения студентов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Присоединение к курсу по коду приглашения
-app.post('/api/courses/join', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'student') {
-    return res.status(403).json({ error: 'Только студенты могут присоединяться к курсам' });
-  }
-
-  const { invite_code } = req.body;
-  const studentId = req.session.user.id;
-
-  if (!invite_code) {
-    return res.status(400).json({ error: 'Код приглашения обязателен' });
-  }
-
-  try {
-    // Находим курс по коду приглашения
-    const courseResult = await db.query(
-      'SELECT id FROM courses WHERE invite_code = $1',
-      [invite_code]
-    );
-
-    if (courseResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Код приглашения недействителен' });
+        const result = await db.query(
+            'SELECT * FROM labs WHERE course_id = $1 ORDER BY created_at DESC',
+            [req.params.id]
+        );
+        
+        res.json({ labs: result.rows });
+    } catch (error) {
+        console.error('❌ Ошибка получения лабораторных работ:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
     }
-
-    const courseId = courseResult.rows[0].id;
-
-    // Проверяем, не присоединен ли уже студент к курсу
-    const existingResult = await db.query(
-      'SELECT id FROM course_students WHERE course_id = $1 AND student_id = $2',
-      [courseId, studentId]
-    );
-
-    if (existingResult.rows.length > 0) {
-      return res.status(400).json({ error: 'Вы уже присоединены к этому курсу' });
-    }
-
-    // Добавляем студента к курсу
-    await db.query(
-      'INSERT INTO course_students (course_id, student_id) VALUES ($1, $2)',
-      [courseId, studentId]
-    );
-
-    res.json({ 
-      success: true, 
-      message: 'Вы успешно присоединились к курсу'
-    });
-  } catch (error) {
-    console.error('Ошибка присоединения к курсу:', error);
-    res.status(500).json({ error: 'Ошибка при присоединении к курсу' });
-  }
 });
 
-// Получение информации о приглашении
-app.get('/api/courses/invite/:code', requireAuth, async (req, res) => {
-  try {
-    const result = await db.query(
-      'SELECT c.*, u.first_name, u.last_name FROM courses c JOIN users u ON c.teacher_id = u.id WHERE c.invite_code = $1',
-      [req.params.code]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Код приглашения недействителен' });
+// Получение количества лабораторных работ курса
+app.get('/api/courses/:id/labs/count', requireAuth, async (req, res) => {
+    try {
+        // Проверяем, принадлежит ли курс преподавателю
+        const courseCheck = await db.query(
+            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
+            [req.params.id, req.session.user.id]
+        );
+
+        if (courseCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        const result = await db.query(
+            'SELECT COUNT(*) as count FROM labs WHERE course_id = $1',
+            [req.params.id]
+        );
+        
+        res.json({ count: parseInt(result.rows[0].count) });
+    } catch (error) {
+        console.error('❌ Ошибка получения количества лабораторных работ:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
     }
-    
-    res.json({ course: result.rows[0] });
-  } catch (error) {
-    console.error('Ошибка получения информации о приглашении:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
 });
 
-// Все остальные GET запросы отдаем index.html
+// Все остальные API маршруты (курсы, лабораторные работы и т.д.)
+// ... остальной код API ...
+
+// Все остальные GET запросы отдаем index.html (для SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Обработка ошибок
+app.use((err, req, res, next) => {
+  console.error('Необработанная ошибка:', err);
+  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
 // Запуск сервера
 connectDatabase().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);
-    console.log(`🌐 Сайт доступен по адресу: http://localhost:${PORT}`);
+    console.log(`🌐 Сайт доступен по адресу: ${process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`}`);
+    console.log(`💡 Режим: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📊 База данных: PostgreSQL`);
   });
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('🔄 Завершение работы...');
+  await db.end();
+  process.exit(0);
 });

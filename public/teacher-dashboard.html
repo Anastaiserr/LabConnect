@@ -236,50 +236,45 @@
         </div>
     </div>
 
-    <!-- Модальное окно управления курсом -->
-<div id="manage-course-modal" class="modal">
-    <div class="modal-content large">
-        <div class="modal-header">
-            <h3 id="manage-course-title">Управление курсом</h3>
-            <span class="close">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="course-management-tabs">
-                <div class="tabs-header">
-                    <button class="tab-btn active" data-tab="labs">Лабораторные работы</button>
-                    <button class="tab-btn" data-tab="students">Студенты</button>
-                </div>
-                
-                <div class="tab-content active" id="labs-tab">
-                    <div class="tab-actions">
-                        <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
+    <!-- Модальное окно управления курсом (лабораторные работы) -->
+    <div id="manage-course-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="manage-course-title">Управление курсом</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="course-management-tabs">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" data-tab="labs">Лабораторные работы</button>
+                        <button class="tab-btn" data-tab="students">Студенты</button>
+                        <button class="tab-btn" data-tab="settings">Настройки</button>
                     </div>
-                    <div class="labs-list" id="course-labs-list">
-                        <div class="loading">Загрузка лабораторных работ...</div>
-                    </div>
-                </div>
-                
-                <div class="tab-content" id="students-tab">
-                    <div class="students-management">
-                        <div class="invite-info">
-                            <p><strong>Код приглашения для студентов:</strong></p>
-                            <div class="invite-code-display">
-                                <code id="course-invite-code">Загрузка...</code>
-                                <button class="btn btn-outline btn-sm" onclick="copyInviteCodeFromStudents()">
-                                    Копировать
-                                </button>
-                            </div>
-                            <p class="help-text">Отправьте этот код студентам для присоединения к курсу</p>
+                    
+                    <div class="tab-content active" id="labs-tab">
+                        <div class="tab-actions">
+                            <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
                         </div>
-                        <div id="students-tab">
+                        <div class="labs-list" id="course-labs-list">
+                            <div class="loading">Загрузка лабораторных работ...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="students-tab">
+                        <div class="students-list">
                             <div class="loading">Загрузка студентов...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="settings-tab">
+                        <div class="course-settings">
+                            <div class="loading">Настройки курса...</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Модальное окно создания лабораторной работы -->
     <div id="create-lab-modal" class="modal">
