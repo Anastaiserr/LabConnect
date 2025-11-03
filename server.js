@@ -548,69 +548,73 @@ app.post('/api/courses', requireAuth, async (req, res) => {
     }
 });
 
-// Создание лабораторной работы
-app.post('/api/labs', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'teacher') {
-        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+
+
+// Получение информации о курсе
+app.get('/api/courses/:id', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(
+            'SELECT * FROM courses WHERE id = $1 AND teacher_id = $2',
+            [req.params.id, req.session.user.id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+        
+        res.json({ course: result.rows[0] });
+    } catch (error) {
+        console.error('❌ Ошибка получения курса:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
     }
+});
 
-    const { name, course_id, description, template_code, start_date, deadline, max_score, attempts, requirements } = req.body;
-
-    // Валидация
-    if (!name || !course_id || !description || !start_date || !deadline || !max_score) {
-        return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
-    }
-
+// Получение лабораторных работ курса
+app.get('/api/courses/:id/labs', requireAuth, async (req, res) => {
     try {
         // Проверяем, принадлежит ли курс преподавателю
         const courseCheck = await db.query(
             'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
-            [course_id, req.session.user.id]
+            [req.params.id, req.session.user.id]
         );
 
         if (courseCheck.rows.length === 0) {
-            return res.status(403).json({ error: 'Курс не найден или у вас нет доступа' });
+            return res.status(403).json({ error: 'Доступ запрещен' });
         }
 
-        // Создаем лабораторную работу
         const result = await db.query(
-            `INSERT INTO labs (title, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements, created_at`,
-            [name, description, course_id, template_code, start_date, deadline, max_score, attempts || 3, requirements]
-        );
-        
-        console.log('✅ Лабораторная работа создана с ID:', result.rows[0].id);
-        
-        res.json({ 
-            success: true, 
-            message: 'Лабораторная работа успешно создана',
-            lab: result.rows[0]
-        });
-    } catch (error) {
-        console.error('❌ Ошибка создания лабораторной работы:', error);
-        res.status(500).json({ error: 'Ошибка при создании лабораторной работы: ' + error.message });
-    }
-});
-
-// Получение лабораторных работ преподавателя
-app.get('/api/teacher/labs', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'teacher') {
-        return res.status(403).json({ error: 'Доступ только для преподавателей' });
-    }
-
-    try {
-        const result = await db.query(
-            `SELECT l.*, c.name as course_name 
-             FROM labs l 
-             JOIN courses c ON l.course_id = c.id 
-             WHERE c.teacher_id = $1 
-             ORDER BY l.created_at DESC`,
-            [req.session.user.id]
+            'SELECT * FROM labs WHERE course_id = $1 ORDER BY created_at DESC',
+            [req.params.id]
         );
         
         res.json({ labs: result.rows });
     } catch (error) {
         console.error('❌ Ошибка получения лабораторных работ:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Получение количества лабораторных работ курса
+app.get('/api/courses/:id/labs/count', requireAuth, async (req, res) => {
+    try {
+        // Проверяем, принадлежит ли курс преподавателю
+        const courseCheck = await db.query(
+            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
+            [req.params.id, req.session.user.id]
+        );
+
+        if (courseCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        const result = await db.query(
+            'SELECT COUNT(*) as count FROM labs WHERE course_id = $1',
+            [req.params.id]
+        );
+        
+        res.json({ count: parseInt(result.rows[0].count) });
+    } catch (error) {
+        console.error('❌ Ошибка получения количества лабораторных работ:', error);
         res.status(500).json({ error: 'Ошибка базы данных' });
     }
 });
