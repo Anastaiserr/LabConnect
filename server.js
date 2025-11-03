@@ -496,6 +496,7 @@ app.delete('/api/profile', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка при удалении профиля' });
   }
 });
+
 // Получение курсов преподавателя
 app.get('/api/teacher/courses', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'teacher') {
@@ -548,7 +549,47 @@ app.post('/api/courses', requireAuth, async (req, res) => {
     }
 });
 
+// Создание лабораторной работы
+app.post('/api/labs', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
 
+    const { name, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements } = req.body;
+
+    if (!name || !description || !course_id) {
+        return res.status(400).json({ error: 'Название, описание и ID курса обязательны' });
+    }
+
+    try {
+        // Проверяем, принадлежит ли курс преподавателю
+        const courseCheck = await db.query(
+            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
+            [course_id, req.session.user.id]
+        );
+
+        if (courseCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Доступ запрещен или курс не найден' });
+        }
+
+        const result = await db.query(
+            `INSERT INTO labs (title, description, course_id, template_code, deadline, max_score) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, title, description, course_id, template_code, deadline, max_score, created_at`,
+            [name, description, course_id, template_code || null, deadline || null, max_score || 10]
+        );
+        
+        console.log('✅ Лабораторная работа создана с ID:', result.rows[0].id);
+        
+        res.json({ 
+            success: true, 
+            message: 'Лабораторная работа успешно создана',
+            lab: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Ошибка создания лабораторной работы:', error);
+        res.status(500).json({ error: 'Ошибка при создании лабораторной работы: ' + error.message });
+    }
+});
 
 // Получение информации о курсе
 app.get('/api/courses/:id', requireAuth, async (req, res) => {
@@ -618,9 +659,6 @@ app.get('/api/courses/:id/labs/count', requireAuth, async (req, res) => {
         res.status(500).json({ error: 'Ошибка базы данных' });
     }
 });
-
-// Все остальные API маршруты (курсы, лабораторные работы и т.д.)
-// ... остальной код API ...
 
 // Все остальные GET запросы отдаем index.html (для SPA)
 app.get('*', (req, res) => {
