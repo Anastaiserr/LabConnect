@@ -408,9 +408,74 @@ function loadTabData(tabId) {
         case 'chat':
             loadChats();
             break;
+        case 'courses':
+            loadStudentCourses();
+            break;
+    }
+}
+// Добавьте новые функции
+async function loadStudentCourses() {
+    try {
+        const container = document.getElementById('student-courses-list');
+        container.innerHTML = '<div class="loading">Загрузка курсов...</div>';
+        
+        const response = await fetch('/api/student/courses', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displayStudentCourses(result.courses || []);
+        } else {
+            throw new Error('Ошибка загрузки курсов');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки курсов студента:', error);
+        document.getElementById('student-courses-list').innerHTML = 
+            '<div class="error-message">Ошибка загрузки курсов</div>';
     }
 }
 
+function displayStudentCourses(courses) {
+    const container = document.getElementById('student-courses-list');
+    
+    if (courses.length === 0) {
+        container.innerHTML = `
+            <div class="no-courses">
+                <p>Вы еще не записаны ни на один курс</p>
+                <p><a href="student-courses.html" class="btn btn-primary">Найти курсы</a></p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = courses.map(course => `
+        <div class="course-card enrolled" data-course-id="${course.id}">
+            <div class="course-header">
+                <h4 class="course-title">${course.name}</h4>
+                <span class="enrollment-status">Записан</span>
+            </div>
+            <div class="course-meta">
+                <span><strong>Дисциплина:</strong> ${course.discipline}</span>
+                <span><strong>Преподаватель:</strong> ${course.teacher_first_name} ${course.teacher_last_name}</span>
+                ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
+            </div>
+            <div class="course-actions">
+                <button class="btn btn-primary btn-sm open-course" data-course-id="${course.id}">
+                    Перейти к курсу
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Добавляем обработчики для кнопок
+    document.querySelectorAll('.open-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            showAlert('Функционал курса в разработке', 'info');
+        });
+    });
+}
 function loadAvailableTasks() {
     // В реальном приложении здесь будет запрос к API
     const courses = [

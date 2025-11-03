@@ -114,7 +114,16 @@ async function initDatabase() {
       )
     `);
     console.log('✅ Таблица labs готова');
-
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS course_enrollments (
+        id SERIAL PRIMARY KEY,
+        course_id INTEGER REFERENCES courses(id),
+        student_id INTEGER REFERENCES users(id),
+        enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(course_id, student_id)
+      )
+    `);
+    console.log('✅ Таблица course_enrollments готова');
     // Таблица для сданных работ
     await db.query(`
       CREATE TABLE IF NOT EXISTS submissions (
@@ -656,6 +665,136 @@ app.get('/api/courses/:id/labs/count', requireAuth, async (req, res) => {
         res.json({ count: parseInt(result.rows[0].count) });
     } catch (error) {
         console.error('❌ Ошибка получения количества лабораторных работ:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Добавляем эти endpoints в server.js после существующих API маршрутов
+
+// Поиск курсов для студентов
+app.get('/api/courses/search', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const { query } = req.query;
+        
+        let searchQuery = `
+            SELECT c.*, u.first_name as teacher_first_name, u.last_name as teacher_last_name
+            FROM courses c
+            JOIN users u ON c.teacher_id = u.id
+            WHERE c.name ILIKE $1 OR c.discipline ILIKE $1 OR c.description ILIKE $1
+        `;
+        
+        const result = await db.query(searchQuery, [`%${query}%`]);
+        
+        res.json({ courses: result.rows });
+    } catch (error) {
+        console.error('❌ Ошибка поиска курсов:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Получение информации о курсе по ID (для студентов)
+app.get('/api/courses/:id/info', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const result = await db.query(`
+            SELECT c.*, u.first_name as teacher_first_name, u.last_name as teacher_last_name
+            FROM courses c
+            JOIN users u ON c.teacher_id = u.id
+            WHERE c.id = $1
+        `, [req.params.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+        
+        res.json({ course: result.rows[0] });
+    } catch (error) {
+        console.error('❌ Ошибка получения информации о курсе:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Запись студента на курс
+app.post('/api/courses/:id/enroll', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    const { password } = req.body;
+    const studentId = req.session.user.id;
+    const courseId = req.params.id;
+
+    try {
+        // Проверяем существование курса
+        const courseResult = await db.query(
+            'SELECT * FROM courses WHERE id = $1',
+            [courseId]
+        );
+        
+        if (courseResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+
+        const course = courseResult.rows[0];
+
+        // Проверяем пароль, если он установлен
+        if (course.password && course.password !== password) {
+            return res.status(401).json({ error: 'Неверный пароль курса' });
+        }
+
+        // Проверяем, не записан ли уже студент на курс
+        const enrollmentCheck = await db.query(
+            'SELECT id FROM course_enrollments WHERE course_id = $1 AND student_id = $2',
+            [courseId, studentId]
+        );
+
+        if (enrollmentCheck.rows.length > 0) {
+            return res.status(400).json({ error: 'Вы уже записаны на этот курс' });
+        }
+
+        // Записываем студента на курс
+        await db.query(
+            'INSERT INTO course_enrollments (course_id, student_id) VALUES ($1, $2)',
+            [courseId, studentId]
+        );
+
+        res.json({ 
+            success: true, 
+            message: 'Вы успешно записались на курс',
+            course: course
+        });
+    } catch (error) {
+        console.error('❌ Ошибка записи на курс:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Получение курсов, на которые записан студент
+app.get('/api/student/courses', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const result = await db.query(`
+            SELECT c.*, u.first_name as teacher_first_name, u.last_name as teacher_last_name
+            FROM courses c
+            JOIN users u ON c.teacher_id = u.id
+            JOIN course_enrollments ce ON c.id = ce.course_id
+            WHERE ce.student_id = $1
+            ORDER BY ce.enrolled_at DESC
+        `, [req.session.user.id]);
+        
+        res.json({ courses: result.rows });
+    } catch (error) {
+        console.error('❌ Ошибка получения курсов студента:', error);
         res.status(500).json({ error: 'Ошибка базы данных' });
     }
 });

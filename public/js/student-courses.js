@@ -1,0 +1,335 @@
+// js/student-courses.js
+// Функциональность поиска и записи на курсы для студентов
+
+let currentEnrollCourseId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initStudentCourses();
+});
+
+async function initStudentCourses() {
+    // Загрузка данных пользователя
+    await loadStudentData();
+    
+    // Загрузка моих курсов
+    await loadMyCourses();
+    
+    // Инициализация обработчиков событий
+    initEventHandlers();
+
+    checkUrlParams();
+}
+
+async function loadStudentData() {
+    try {
+        const response = await API.getCurrentUser();
+        if (response.user) {
+            document.getElementById('current-user').textContent = 
+                `${response.user.firstName} ${response.user.lastName} (Студент)`;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки данных пользователя:', error);
+        window.location.href = 'login.html';
+    }
+}
+
+async function loadMyCourses() {
+    try {
+        const response = await fetch('/api/student/courses', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displayMyCourses(result.courses || []);
+        } else {
+            throw new Error('Ошибка загрузки курсов');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки моих курсов:', error);
+        document.getElementById('my-courses-list').innerHTML = 
+            '<div class="error-message">Ошибка загрузки курсов</div>';
+    }
+}
+
+function displayMyCourses(courses) {
+    const container = document.getElementById('my-courses-list');
+    
+    if (courses.length === 0) {
+        container.innerHTML = `
+            <div class="no-courses">
+                <p>Вы еще не записаны ни на один курс</p>
+                <p>Найдите интересующие вас курсы с помощью поиска выше</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = courses.map(course => `
+        <div class="course-card enrolled" data-course-id="${course.id}">
+            <div class="course-header">
+                <h4 class="course-title">${course.name}</h4>
+                <span class="enrollment-status">Записан</span>
+            </div>
+            <div class="course-meta">
+                <span><strong>Дисциплина:</strong> ${course.discipline}</span>
+                <span><strong>Преподаватель:</strong> ${course.teacher_first_name} ${course.teacher_last_name}</span>
+                ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
+            </div>
+            <div class="course-actions">
+                <button class="btn btn-primary btn-sm open-course" data-course-id="${course.id}">
+                    Перейти к курсу
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Добавляем обработчики для кнопок
+    addMyCoursesEventHandlers();
+}
+
+function initEventHandlers() {
+    // Поиск курсов
+    const searchBtn = document.getElementById('search-btn');
+    const searchInput = document.getElementById('course-search');
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', searchCourses);
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCourses();
+            }
+        });
+    }
+    
+    // Форма записи на курс
+    const enrollForm = document.getElementById('enroll-form');
+    if (enrollForm) {
+        enrollForm.addEventListener('submit', handleEnrollment);
+    }
+    
+    // Закрытие модальных окон
+    document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
+        });
+    });
+    
+    // Закрытие при клике вне окна
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+}
+
+async function searchCourses() {
+    const query = document.getElementById('course-search').value.trim();
+    
+    if (!query) {
+        showAlert('Введите поисковый запрос', 'warning');
+        return;
+    }
+    
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '<div class="loading">Поиск курсов...</div>';
+    
+    try {
+        const response = await fetch(`/api/courses/search?query=${encodeURIComponent(query)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displaySearchResults(result.courses || []);
+        } else {
+            throw new Error('Ошибка поиска');
+        }
+    } catch (error) {
+        console.error('Ошибка поиска курсов:', error);
+        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска курсов</div>';
+    }
+}
+
+function displaySearchResults(courses) {
+    const container = document.getElementById('search-results');
+    
+    if (courses.length === 0) {
+        container.innerHTML = '<div class="no-data">Курсы не найдены</div>';
+        return;
+    }
+    
+    container.innerHTML = courses.map(course => `
+        <div class="course-card search-result" data-course-id="${course.id}">
+            <div class="course-header">
+                <h4 class="course-title">${course.name}</h4>
+                <span class="course-protection">
+                    ${course.password ? '🔒 Защищен паролем' : '🔓 Открытый доступ'}
+                </span>
+            </div>
+            <div class="course-meta">
+                <span><strong>Дисциплина:</strong> ${course.discipline}</span>
+                <span><strong>Преподаватель:</strong> ${course.teacher_first_name} ${course.teacher_last_name}</span>
+                ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
+            </div>
+            <div class="course-actions">
+                <button class="btn btn-primary btn-sm enroll-course" data-course-id="${course.id}">
+                    Записаться на курс
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Добавляем обработчики для кнопок записи
+    addSearchResultsEventHandlers();
+}
+
+function addSearchResultsEventHandlers() {
+    document.querySelectorAll('.enroll-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            openEnrollModal(courseId);
+        });
+    });
+}
+
+function addMyCoursesEventHandlers() {
+    document.querySelectorAll('.open-course').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courseId = this.getAttribute('data-course-id');
+            // Здесь можно добавить переход к странице курса
+            showAlert('Переход к курсу...', 'info');
+        });
+    });
+}
+
+async function openEnrollModal(courseId) {
+    currentEnrollCourseId = courseId;
+    
+    try {
+        const response = await fetch(`/api/courses/${courseId}/info`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            const course = result.course;
+            
+            // Заполняем информацию о курсе
+            document.getElementById('enroll-course-title').textContent = `Запись на курс: ${course.name}`;
+            document.getElementById('course-name-enroll').textContent = course.name;
+            document.getElementById('course-discipline-enroll').textContent = course.discipline;
+            document.getElementById('course-teacher-enroll').textContent = 
+                `${course.teacher_first_name} ${course.teacher_last_name}`;
+            document.getElementById('course-description-enroll').textContent = 
+                course.description || 'Описание отсутствует';
+            
+            // Показываем поле для пароля, если курс защищен
+            const passwordField = document.getElementById('password-field');
+            if (course.password) {
+                passwordField.style.display = 'block';
+            } else {
+                passwordField.style.display = 'none';
+            }
+            
+            // Показываем модальное окно
+            document.getElementById('enroll-modal').style.display = 'block';
+            
+        } else {
+            throw new Error('Ошибка загрузки информации о курсе');
+        }
+    } catch (error) {
+        console.error('Ошибка открытия модального окна записи:', error);
+        showAlert('Ошибка загрузки информации о курсе', 'error');
+    }
+}
+
+async function handleEnrollment(e) {
+    e.preventDefault();
+    
+    const password = document.getElementById('course-password-enroll').value;
+    
+    try {
+        const response = await fetch(`/api/courses/${currentEnrollCourseId}/enroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ password })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Закрываем модальное окно
+            document.getElementById('enroll-modal').style.display = 'none';
+            
+            // Обновляем список моих курсов
+            await loadMyCourses();
+            
+            // Очищаем форму
+            document.getElementById('enroll-form').reset();
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка записи на курс');
+        }
+    } catch (error) {
+        console.error('Ошибка записи на курс:', error);
+        showAlert(error.message, 'error');
+    }
+}
+
+// Проверка параметров URL при загрузке страницы
+function checkUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const courseId = urlParams.get('course');
+    
+    if (courseId) {
+        openEnrollModal(courseId);
+    }
+}
+
+function showAlert(message, type = 'info') {
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+    
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    
+    alert.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+    
+    const colors = {
+        success: '#27ae60',
+        error: '#e74c3c',
+        warning: '#f39c12',
+        info: '#3498db'
+    };
+    
+    alert.style.backgroundColor = colors[type] || colors.info;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
+}

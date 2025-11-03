@@ -1069,3 +1069,61 @@ select.form-control {
 .modal-content.large {
     max-width: 800px;
 }
+
+/* Добавьте в конец файла */
+.search-section {
+    margin-bottom: 2rem;
+}
+
+.search-box {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.search-box input {
+    flex: 1;
+}
+
+.enrolled .course-header {
+    border-left-color: #27ae60;
+}
+
+.enrollment-status {
+    background: #27ae60;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.course-protection {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.my-courses-section,
+.search-results-section {
+    margin-bottom: 2rem;
+}
+
+.my-courses-section h3,
+.search-results-section h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--secondary-color);
+}
+
+.course-details {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.course-details h4 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-color);
+}

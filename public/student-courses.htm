@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск курсов - LabConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LabConnect</h1>
+                <p>Поиск и запись на курсы</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="student-dashboard.html">Назад в кабинет</a></li>
+                    <li><a href="#" id="logout">Выйти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <div class="container">
+            <div class="dashboard-header">
+                <h2>Поиск и запись на курсы</h2>
+                <div class="user-info">
+                    <span id="current-user">Загрузка...</span>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- Поиск курсов -->
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" id="course-search" class="form-control" 
+                               placeholder="Введите название курса, дисциплину или преподавателя...">
+                        <button class="btn btn-primary" id="search-btn">Поиск</button>
+                    </div>
+                </div>
+
+                <!-- Мои курсы -->
+                <div class="my-courses-section">
+                    <h3>Мои курсы</h3>
+                    <div class="courses-list" id="my-courses-list">
+                        <div class="loading">Загрузка ваших курсов...</div>
+                    </div>
+                </div>
+
+                <!-- Результаты поиска -->
+                <div class="search-results-section">
+                    <h3>Результаты поиска</h3>
+                    <div class="courses-list" id="search-results">
+                        <div class="no-data">Введите запрос для поиска курсов</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно записи на курс -->
+    <div id="enroll-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="enroll-course-title">Запись на курс</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="course-info">
+                    <div class="course-details">
+                        <h4 id="course-name-enroll"></h4>
+                        <p><strong>Дисциплина:</strong> <span id="course-discipline-enroll"></span></p>
+                        <p><strong>Преподаватель:</strong> <span id="course-teacher-enroll"></span></p>
+                        <p id="course-description-enroll"></p>
+                    </div>
+                </div>
+                <form id="enroll-form">
+                    <div class="form-group" id="password-field" style="display: none;">
+                        <label for="course-password-enroll">Пароль курса</label>
+                        <input type="password" id="course-password-enroll" class="form-control" 
+                               placeholder="Введите пароль для доступа к курсу">
+                        <small class="form-text">Этот курс защищен паролем</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Записаться на курс</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/student-courses.js"></script>
+</body>
+</html>
