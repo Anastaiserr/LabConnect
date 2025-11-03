@@ -122,21 +122,84 @@
                     </div>
                 </div>
 
-                <!-- Вкладка Выдача заданий -->
-                <div id="assign-tasks" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Выдача лабораторных работ</h3>
-                        <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
+                <!-- Модальное окно создания лабораторной работы -->
+<div id="create-lab-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Создание лабораторной работы</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="lab-create-form">
+                <div class="form-group">
+                    <label for="lab-name">Название работы *</label>
+                    <input type="text" id="lab-name" name="lab-name" class="form-control" required 
+                           placeholder="Лабораторная работа 1: Основы HTML">
+                </div>
+                
+                <div class="form-group">
+                    <label for="lab-course">Курс *</label>
+                    <select id="lab-course" name="lab-course" class="form-control" required>
+                        <option value="">-- Выберите курс --</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lab-description">Описание работы *</label>
+                    <textarea id="lab-description" name="lab-description" class="form-control" rows="4" required 
+                              placeholder="Опишите задание, требования и цели работы..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lab-template">Шаблон кода (необязательно)</label>
+                    <textarea id="lab-template" name="lab-template" class="form-control" rows="6" 
+                              placeholder="Введите заготовку кода или шаблон для студентов..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lab-start-date">Дата начала *</label>
+                        <input type="datetime-local" id="lab-start-date" name="lab-start-date" class="form-control" required>
                     </div>
-                    <div class="lab-management">
-                        <div class="existing-labs">
-                            <h4>Существующие лабораторные работы</h4>
-                            <div class="labs-list">
-                                <div class="loading">Загрузка лабораторных работ...</div>
-                            </div>
-                        </div>
+                    
+                    <div class="form-group">
+                        <label for="lab-deadline">Дедлайн сдачи *</label>
+                        <input type="datetime-local" id="lab-deadline" name="lab-deadline" class="form-control" required>
                     </div>
                 </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lab-max-score">Максимальный балл *</label>
+                        <input type="number" id="lab-max-score" name="lab-max-score" class="form-control" 
+                               value="10" min="1" max="100" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lab-attempts">Количество попыток</label>
+                        <select id="lab-attempts" name="lab-attempts" class="form-control">
+                            <option value="1">1 попытка</option>
+                            <option value="2">2 попытки</option>
+                            <option value="3" selected>3 попытки</option>
+                            <option value="0">Неограниченно</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lab-requirements">Дополнительные требования</label>
+                    <textarea id="lab-requirements" name="lab-requirements" class="form-control" rows="3" 
+                              placeholder="Дополнительные требования, критерии оценки..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать работу</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
                 <!-- Вкладка Проверка работ -->
                 <div id="check-works" class="tab-content">

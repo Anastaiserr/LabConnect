@@ -64,12 +64,20 @@ function initTeacherModals() {
     
     // 1. Кнопка создания курса
     const createCourseBtn = document.getElementById('create-course-btn');
-    console.log('🔍 Кнопка создания курса:', createCourseBtn);
-    
     if (createCourseBtn) {
         createCourseBtn.addEventListener('click', function() {
             console.log('🎯 Кнопка создания курса нажата');
             document.getElementById('create-course-modal').style.display = 'block';
+        });
+    }
+
+    
+    // 2. Кнопка создания лабораторной работы
+    const createLabBtn = document.getElementById('create-lab-btn');
+    if (createLabBtn) {
+        createLabBtn.addEventListener('click', function() {
+            console.log('🎯 Кнопка создания лабораторной работы нажата');
+            openCreateLabModal();
         });
     }
     
@@ -80,6 +88,16 @@ function initTeacherModals() {
             e.preventDefault();
             console.log('📝 Форма создания курса отправлена');
             createNewCourse();
+        });
+    }
+
+    // 4. Форма создания лабораторной работы
+    const labCreateForm = document.getElementById('lab-create-form');
+    if (labCreateForm) {
+        labCreateForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('📝 Форма создания лабораторной работы отправлена');
+            createNewLab();
         });
     }
     
@@ -101,6 +119,182 @@ function initTeacherModals() {
     });
     
     console.log('✅ Модальные окна инициализированы');
+}
+
+
+// Функция создания новой лабораторной работы
+async function createNewLab() {
+    const form = document.getElementById('lab-create-form');
+    if (!form) {
+        console.error('❌ Форма создания лабораторной работы не найдена');
+        return;
+    }
+    
+    const formData = new FormData(form);
+    const labData = {
+        name: formData.get('lab-name'),
+        course_id: parseInt(formData.get('lab-course')),
+        description: formData.get('lab-description'),
+        template_code: formData.get('lab-template') || null,
+        start_date: formData.get('lab-start-date'),
+        deadline: formData.get('lab-deadline'),
+        max_score: parseInt(formData.get('lab-max-score')),
+        attempts: parseInt(formData.get('lab-attempts')),
+        requirements: formData.get('lab-requirements') || null
+    };
+    
+    console.log('🔄 Создание лабораторной работы:', labData);
+    
+    // Валидация
+    if (!labData.name || !labData.course_id || !labData.description) {
+        showAlert('Название, курс и описание обязательны для заполнения', 'error');
+        return;
+    }
+    
+    // Проверка дат
+    const startDate = new Date(labData.start_date);
+    const deadline = new Date(labData.deadline);
+    
+    if (deadline <= startDate) {
+        showAlert('Дедлайн должен быть позже даты начала', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/labs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(labData)
+        });
+
+        console.log('📊 Статус создания лабораторной работы:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка создания лабораторной работы');
+        }
+
+        const result = await response.json();
+        console.log('✅ Лабораторная работа создана:', result);
+        
+        showAlert(result.message, 'success');
+        document.getElementById('create-lab-modal').style.display = 'none';
+        form.reset();
+        
+        // Перезагружаем список лабораторных работ
+        await loadTeacherLabs();
+        
+    } catch (error) {
+        console.error('❌ Ошибка создания лабораторной работы:', error);
+        showAlert('Ошибка создания лабораторной работы: ' + error.message, 'error');
+    }
+}
+
+// Функция загрузки лабораторных работ
+async function loadTeacherLabs() {
+    try {
+        console.log('📚 Загрузка лабораторных работ...');
+        
+        // В реальном приложении здесь будет запрос к API
+        // const response = await fetch('/api/teacher/labs', {...});
+        
+        // Пока используем заглушку
+        const labs = [
+            {
+                id: 1,
+                title: 'Лабораторная работа 1: Основы HTML',
+                course: 'Веб-технологии',
+                start_date: '2025-01-15T00:00:00',
+                deadline: '2025-01-22T23:59:00',
+                status: 'active',
+                submissions: 15,
+                checked: 10
+            },
+            {
+                id: 2,
+                title: 'Лабораторная работа 2: CSS стилизация',
+                course: 'Веб-технологии',
+                start_date: '2025-01-23T00:00:00',
+                deadline: '2025-01-30T23:59:00',
+                status: 'upcoming',
+                submissions: 0,
+                checked: 0
+            }
+        ];
+        
+        displayTeacherLabs(labs);
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки лабораторных работ:', error);
+    }
+}
+
+// Функция отображения лабораторных работ
+function displayTeacherLabs(labs) {
+    const container = document.querySelector('.labs-list');
+    
+    if (!container) {
+        console.error('❌ Контейнер лабораторных работ не найден');
+        return;
+    }
+    
+    if (!labs || labs.length === 0) {
+        container.innerHTML = `
+            <div class="no-labs">
+                <p>Лабораторные работы не найдены</p>
+                <p>Создайте первую лабораторную работу</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = labs.map(lab => `
+        <div class="lab-card" data-lab-id="${lab.id}">
+            <div class="lab-header">
+                <h4 class="lab-title">${lab.title}</h4>
+                <span class="lab-status status-${lab.status}">
+                    ${getLabStatusText(lab.status)}
+                </span>
+            </div>
+            <div class="lab-meta">
+                <span><strong>Курс:</strong> ${lab.course}</span>
+                <span><strong>Начало:</strong> ${formatDate(lab.start_date)}</span>
+                <span><strong>Дедлайн:</strong> ${formatDate(lab.deadline)}</span>
+            </div>
+            <div class="lab-stats">
+                <span>Сдано работ: ${lab.submissions}</span>
+                <span>Проверено: ${lab.checked}</span>
+            </div>
+            <div class="lab-actions">
+                <button class="btn btn-secondary btn-sm edit-lab" data-lab-id="${lab.id}">
+                    Редактировать
+                </button>
+                <button class="btn btn-primary btn-sm view-submissions" data-lab-id="${lab.id}">
+                    Проверить работы
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    console.log('✅ Лабораторные работы отображены');
+}
+
+// Вспомогательные функции
+function formatDateTimeLocal(date) {
+    return date.toISOString().slice(0, 16);
+}
+
+function getLabStatusText(status) {
+    const statusMap = {
+        'active': 'Активна',
+        'upcoming': 'Скоро начнется',
+        'completed': 'Завершена',
+        'draft': 'Черновик'
+    };
+    return statusMap[status] || status;
 }
 
 async function loadTeacherTabData(tabId) {
