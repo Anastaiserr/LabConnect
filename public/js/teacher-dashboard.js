@@ -12,11 +12,11 @@ async function initTeacherDashboard() {
     // Инициализация вкладок
     initTeacherTabs();
     
-    // Загрузка данных преподавателя
-    await loadTeacherData();
-    
     // Инициализация модальных окон
     initTeacherModals();
+    
+    // Загрузка данных преподавателя
+    await loadTeacherData();
     
     // Загружаем курсы если активна соответствующая вкладка
     const activeTab = document.querySelector('.nav-link.active');
@@ -24,29 +24,30 @@ async function initTeacherDashboard() {
         console.log('📚 Загружаем курсы...');
         await loadTeacherCourses();
     }
+    
+    console.log('✅ Личный кабинет преподавателя инициализирован');
 }
 
 function initTeacherTabs() {
     console.log('🔧 Инициализация вкладок');
     
     const navLinks = document.querySelectorAll('.nav-link');
-    const tabContents = document.querySelectorAll('.tab-content');
     
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
-            console.log('🔄 Переключение на вкладку:', this.getAttribute('data-tab'));
+            const tabId = this.getAttribute('data-tab');
+            console.log('🔄 Переключение на вкладку:', tabId);
             
             // Убрать активный класс со всех ссылок и вкладок
             navLinks.forEach(l => l.classList.remove('active'));
-            tabContents.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             
             // Добавить активный класс к текущей ссылке
             this.classList.add('active');
             
             // Показать соответствующую вкладку
-            const tabId = this.getAttribute('data-tab');
             const tabContent = document.getElementById(tabId);
             if (tabContent) {
                 tabContent.classList.add('active');
@@ -61,7 +62,7 @@ function initTeacherTabs() {
 function initTeacherModals() {
     console.log('🔧 Инициализация модальных окон');
     
-    // Кнопка создания курса
+    // 1. Кнопка создания курса
     const createCourseBtn = document.getElementById('create-course-btn');
     console.log('🔍 Кнопка создания курса:', createCourseBtn);
     
@@ -70,11 +71,9 @@ function initTeacherModals() {
             console.log('🎯 Кнопка создания курса нажата');
             document.getElementById('create-course-modal').style.display = 'block';
         });
-    } else {
-        console.error('❌ Кнопка создания курса не найдена!');
     }
     
-    // Обработчик формы создания курса
+    // 2. Форма создания курса
     const courseCreateForm = document.getElementById('course-create-form');
     if (courseCreateForm) {
         courseCreateForm.addEventListener('submit', function(e) {
@@ -84,7 +83,7 @@ function initTeacherModals() {
         });
     }
     
-    // Закрытие модальных окон
+    // 3. Закрытие модальных окон
     document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const modal = this.closest('.modal');
@@ -94,7 +93,7 @@ function initTeacherModals() {
         });
     });
     
-    // Закрытие при клике вне окна
+    // 4. Закрытие при клике вне окна
     window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
@@ -139,6 +138,19 @@ async function loadTeacherData() {
         if (response.ok) {
             const data = await response.json();
             console.log('✅ Данные преподавателя загружены:', data.user);
+            
+            // Обновляем данные на странице
+            if (data.user) {
+                document.getElementById('teacher-name').textContent = data.user.firstName + ' ' + data.user.lastName;
+                document.getElementById('teacher-department').textContent = 'Кафедра: ' + (data.user.department || 'Не указана');
+                
+                // Обновляем данные в профиле
+                document.getElementById('teacher-firstname').textContent = data.user.firstName;
+                document.getElementById('teacher-lastname').textContent = data.user.lastName;
+                document.getElementById('teacher-email').textContent = data.user.email;
+                document.getElementById('teacher-department-detail').textContent = data.user.department || 'Не указана';
+                document.getElementById('teacher-position').textContent = data.user.position || 'Не указана';
+            }
         } else {
             console.error('❌ Ошибка загрузки данных пользователя');
         }
@@ -177,7 +189,7 @@ async function loadTeacherCourses() {
         }
 
         const result = await response.json();
-        console.log('✅ Получены курсы:', result.courses);
+        console.log('✅ Получены курсы:', result);
         
         if (result.courses && result.courses.length > 0) {
             displayTeacherCourses(result.courses);
@@ -368,7 +380,7 @@ function showAlert(message, type = 'info') {
     }, 5000);
 }
 
-// Заглушки для остальных функций (добавьте реальную реализацию позже)
+// Заглушки для остальных функций
 async function loadTeacherLabs() {
     console.log('📚 Загрузка лабораторных работ...');
 }
@@ -388,3 +400,20 @@ function loadSettingsData() {
 function loadTeacherChats() {
     console.log('💬 Загрузка чатов...');
 }
+
+// Тестовая функция для проверки кнопки
+function testButton() {
+    const btn = document.getElementById('create-course-btn');
+    if (btn) {
+        console.log('✅ Кнопка найдена, добавляем тестовый обработчик');
+        btn.onclick = function() {
+            console.log('🎯 Тест: кнопка работает!');
+            alert('Кнопка создания курса работает!');
+        };
+    } else {
+        console.error('❌ Кнопка не найдена');
+    }
+}
+
+// Запускаем тест через секунду после загрузки
+setTimeout(testButton, 1000);

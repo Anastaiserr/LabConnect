@@ -40,49 +40,10 @@
                     <li><a href="#statements" class="nav-link" data-tab="statements">Ведомости</a></li>
                     <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
                     <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
-
                 </ul>
             </nav>
 
             <div class="dashboard-content">
-                <!-- Модальное окно создания курса -->
-<div id="create-course-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Создание нового курса</h3>
-            <span class="close">&times;</span>
-        </div>
-        <div class="modal-body">
-            <form id="course-create-form">
-                <div class="form-group">
-                    <label for="course-name">Название курса *</label>
-                    <input type="text" id="course-name" name="course-name" class="form-control" required 
-                           placeholder="Веб-технологии">
-                </div>
-                <div class="form-group">
-                    <label for="course-discipline">Дисциплина *</label>
-                    <input type="text" id="course-discipline" name="course-discipline" class="form-control" required 
-                           placeholder="Программная инженерия">
-                </div>
-                <div class="form-group">
-                    <label for="course-description">Описание курса</label>
-                    <textarea id="course-description" name="course-description" class="form-control" rows="3" 
-                              placeholder="Краткое описание курса..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="course-password">Пароль для доступа к курсу (необязательно)</label>
-                    <input type="password" id="course-password" name="course-password" class="form-control" 
-                           placeholder="Оставьте пустым для свободного доступа">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Создать курс</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
                 <!-- Вкладка Профиль -->
                 <div id="profile" class="tab-content active">
                     <div class="tab-header">
@@ -146,16 +107,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- Вкладка Настройки -->
-                <div id="settings" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Настройки профиля</h3>
-                    </div>
-                    <div class="settings-redirect">
-                        <p>Для управления настройками профиля перейдите на специальную страницу:</p>
-                        <a href="settings.html" class="btn btn-primary">Перейти к настройкам</a>
-                    </div>
-                </div>
+
                 <!-- Вкладка Дисциплины и Курсы -->
                 <div id="disciplines" class="tab-content">
                     <div class="tab-header">
@@ -180,7 +132,6 @@
                         <div class="existing-labs">
                             <h4>Существующие лабораторные работы</h4>
                             <div class="labs-list">
-                                <!-- Список лабораторных работ будет загружен через JavaScript -->
                                 <div class="loading">Загрузка лабораторных работ...</div>
                             </div>
                         </div>
@@ -202,7 +153,6 @@
                     </div>
                     <div class="works-to-check">
                         <div class="works-list">
-                            <!-- Работы на проверку будут загружены через JavaScript -->
                             <div class="loading">Загрузка работ для проверки...</div>
                         </div>
                     </div>
@@ -228,7 +178,6 @@
                             <button class="btn btn-primary" id="generate-statement">Сформировать ведомость</button>
                         </div>
                         <div class="statement-preview">
-                            <!-- Предпросмотр ведомости будет загружен через JavaScript -->
                             <div class="placeholder">Выберите курс и группу для формирования ведомости</div>
                         </div>
                     </div>
@@ -241,7 +190,6 @@
                         <div class="chat-groups">
                             <h4>Группы и студенты</h4>
                             <div class="groups-list">
-                                <!-- Список групп и студентов будет загружен через JavaScript -->
                                 <div class="loading">Загрузка чатов...</div>
                             </div>
                         </div>
@@ -255,27 +203,55 @@
 
                 <!-- Вкладка Настройки -->
                 <div id="settings" class="tab-content">
-                    <h3>Настройки системы</h3>
-                    <div class="settings-panel">
-                        <div class="setting-section">
-                            <h4>Критерии оценки</h4>
-                            <div class="grading-criteria">
-                                <!-- Настройки критериев оценки будут загружены через JavaScript -->
-                                <div class="loading">Загрузка критериев оценки...</div>
-                            </div>
-                        </div>
-                        <div class="setting-section">
-                            <h4>Шаблоны заданий</h4>
-                            <div class="task-templates">
-                                <!-- Шаблоны заданий будут загружены через JavaScript -->
-                                <div class="loading">Загрузка шаблонов заданий...</div>
-                            </div>
-                        </div>
+                    <div class="tab-header">
+                        <h3>Настройки профиля</h3>
+                    </div>
+                    <div class="settings-redirect">
+                        <p>Для управления настройками профиля перейдите на специальную страницу:</p>
+                        <a href="settings.html" class="btn btn-primary">Перейти к настройкам</a>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Модальное окно создания курса -->
+    <div id="create-course-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Создание нового курса</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="course-create-form">
+                    <div class="form-group">
+                        <label for="course-name">Название курса *</label>
+                        <input type="text" id="course-name" name="course-name" class="form-control" required 
+                               placeholder="Веб-технологии">
+                    </div>
+                    <div class="form-group">
+                        <label for="course-discipline">Дисциплина *</label>
+                        <input type="text" id="course-discipline" name="course-discipline" class="form-control" required 
+                               placeholder="Программная инженерия">
+                    </div>
+                    <div class="form-group">
+                        <label for="course-description">Описание курса</label>
+                        <textarea id="course-description" name="course-description" class="form-control" rows="3" 
+                                  placeholder="Краткое описание курса..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="course-password">Пароль для доступа к курсу (необязательно)</label>
+                        <input type="password" id="course-password" name="course-password" class="form-control" 
+                               placeholder="Оставьте пустым для свободного доступа">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Создать курс</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Модальное окно редактирования профиля -->
     <div id="edit-profile-modal" class="modal">
@@ -394,130 +370,6 @@
                         <button type="submit" class="btn btn-danger">Удалить профиль</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно создания курса -->
-    <div id="create-course-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Создание нового курса</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="course-create-form">
-                    <div class="form-group">
-                        <label for="course-name">Название курса</label>
-                        <input type="text" id="course-name" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="course-description">Описание курса</label>
-                        <textarea id="course-description" class="form-control" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="course-discipline">Дисциплина</label>
-                        <input type="text" id="course-discipline" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="course-password">Пароль для доступа к курсу</label>
-                        <input type="password" id="course-password" class="form-control">
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Создать курс</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно создания лабораторной работы -->
-    <div id="create-lab-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Создание лабораторной работы</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="lab-create-form">
-                    <div class="form-group">
-                        <label for="lab-name">Название работы</label>
-                        <input type="text" id="lab-name" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="lab-course">Курс</label>
-                        <select id="lab-course" class="form-control" required>
-                            <option value="">-- Выберите курс --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="lab-description">Описание работы</label>
-                        <textarea id="lab-description" class="form-control" rows="4" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="lab-template">Шаблон кода (необязательно)</label>
-                        <textarea id="lab-template" class="form-control" rows="6" placeholder="Введите заготовку кода..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="lab-deadline">Дедлайн сдачи</label>
-                        <input type="datetime-local" id="lab-deadline" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="lab-max-score">Максимальный балл</label>
-                        <input type="number" id="lab-max-score" class="form-control" value="10" min="1" max="100">
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Создать работу</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно проверки работы -->
-    <div id="check-work-modal" class="modal">
-        <div class="modal-content large">
-            <div class="modal-header">
-                <h3>Проверка работы студента</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="work-review">
-                    <div class="work-info">
-                        <h4 id="work-student-name">Студент: Косовой Н.А.</h4>
-                        <p id="work-lab-name">Лабораторная работа: "Разработка веб-приложения"</p>
-                        <p id="work-submit-date">Дата сдачи: 25.05.2025 14:30</p>
-                    </div>
-                    <div class="work-files">
-                        <h5>Прикрепленные файлы:</h5>
-                        <div id="work-files-list">
-                            <!-- Список файлов будет загружен через JavaScript -->
-                        </div>
-                    </div>
-                    <div class="work-code">
-                        <h5>Исходный код:</h5>
-                        <pre id="work-code-preview"><code>// Код студента будет отображен здесь</code></pre>
-                    </div>
-                    <div class="work-evaluation">
-                        <h5>Оценка работы:</h5>
-                        <form id="work-evaluation-form">
-                            <div class="form-group">
-                                <label for="work-score">Оценка (баллы)</label>
-                                <input type="number" id="work-score" class="form-control" min="0" max="10" step="0.5">
-                            </div>
-                            <div class="form-group">
-                                <label for="work-comments">Комментарии и замечания</label>
-                                <textarea id="work-comments" class="form-control" rows="4" placeholder="Оставьте комментарии по работе..."></textarea>
-                            </div>
-                            <div class="form-actions">
-                                <button type="button" class="btn btn-warning" id="send-revision">Отправить на доработку</button>
-                                <button type="submit" class="btn btn-primary">Принять работу</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

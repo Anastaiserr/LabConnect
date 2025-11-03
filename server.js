@@ -531,7 +531,7 @@ app.post('/api/courses', requireAuth, async (req, res) => {
     try {
         const result = await db.query(
             `INSERT INTO courses (name, description, discipline, password, teacher_id) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+             VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, discipline, password, created_at`,
             [name, description, discipline, password, req.session.user.id]
         );
         
@@ -540,7 +540,7 @@ app.post('/api/courses', requireAuth, async (req, res) => {
         res.json({ 
             success: true, 
             message: 'Курс успешно создан',
-            courseId: result.rows[0].id
+            course: result.rows[0]
         });
     } catch (error) {
         console.error('❌ Ошибка создания курса:', error);
