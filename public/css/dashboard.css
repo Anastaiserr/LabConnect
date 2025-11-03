@@ -1069,3 +1069,59 @@ select.form-control {
 .modal-content.large {
     max-width: 800px;
 }
+
+/* Добавь в dashboard.css */
+.invite-code-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.invite-code-display code {
+    flex: 1;
+    padding: 5px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.students-list {
+    margin-top: 20px;
+}
+
+.student-item {
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: white;
+}
+
+.student-info h5 {
+    margin: 0 0 5px 0;
+    color: #2c3e50;
+}
+
+.student-meta {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.no-students, .no-labs {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.invite-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
