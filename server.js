@@ -498,53 +498,54 @@ app.delete('/api/profile', requireAuth, async (req, res) => {
 });
 // Получение курсов преподавателя
 app.get('/api/teacher/courses', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Доступ только для преподавателей' });
-  }
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
 
-  try {
-    const result = await db.query(
-      'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
-      [req.session.user.id]
-    );
-    
-    res.json({ courses: result.rows });
-  } catch (error) {
-    console.error('Ошибка получения курсов:', error);
-    res.status(500).json({ error: 'Ошибка базы данных' });
-  }
+    try {
+        const result = await db.query(
+            'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
+            [req.session.user.id]
+        );
+        
+        console.log(`📊 Найдено курсов: ${result.rows.length}`);
+        res.json({ courses: result.rows });
+    } catch (error) {
+        console.error('❌ Ошибка получения курсов:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
 });
 
 // Создание курса
 app.post('/api/courses', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Доступ только для преподавателей' });
-  }
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
 
-  const { name, description, discipline, password } = req.body;
+    const { name, description, discipline, password } = req.body;
 
-  if (!name || !discipline) {
-    return res.status(400).json({ error: 'Название и дисциплина обязательны' });
-  }
+    if (!name || !discipline) {
+        return res.status(400).json({ error: 'Название и дисциплина обязательны' });
+    }
 
-  try {
-    const result = await db.query(
-      `INSERT INTO courses (name, description, discipline, password, teacher_id) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [name, description, discipline, password, req.session.user.id]
-    );
-    
-    console.log('✅ Курс создан с ID:', result.rows[0].id);
-    
-    res.json({ 
-      success: true, 
-      message: 'Курс успешно создан',
-      courseId: result.rows[0].id
-    });
-  } catch (error) {
-    console.error('Ошибка создания курса:', error);
-    res.status(500).json({ error: 'Ошибка при создании курса: ' + error.message });
-  }
+    try {
+        const result = await db.query(
+            `INSERT INTO courses (name, description, discipline, password, teacher_id) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [name, description, discipline, password, req.session.user.id]
+        );
+        
+        console.log('✅ Курс создан с ID:', result.rows[0].id);
+        
+        res.json({ 
+            success: true, 
+            message: 'Курс успешно создан',
+            courseId: result.rows[0].id
+        });
+    } catch (error) {
+        console.error('❌ Ошибка создания курса:', error);
+        res.status(500).json({ error: 'Ошибка при создании курса: ' + error.message });
+    }
 });
 // Все остальные API маршруты (курсы, лабораторные работы и т.д.)
 // ... остальной код API ...

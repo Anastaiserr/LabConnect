@@ -18,6 +18,7 @@ async function initTeacherDashboard() {
     // Автоматически загружаем курсы если активна вкладка "Дисциплины и Курсы"
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab && activeTab.getAttribute('data-tab') === 'disciplines') {
+        console.log('🎯 Автоматическая загрузка курсов...');
         await loadTeacherCourses();
     }
 }
@@ -51,12 +52,11 @@ function initTeacherTabs() {
 async function loadTeacherCourses() {
     try {
         const coursesList = document.getElementById('courses-list');
-        const loadingElement = document.getElementById('courses-loading');
+        
+        console.log('🔄 Начинаем загрузку курсов...');
         
         // Показываем загрузку
         coursesList.innerHTML = '<div class="loading">Загрузка курсов...</div>';
-        
-        console.log('🔄 Загрузка курсов...');
         
         // Загружаем курсы через API
         const response = await fetch('/api/teacher/courses', {
@@ -67,16 +67,17 @@ async function loadTeacherCourses() {
             credentials: 'include'
         });
 
-        console.log('Статус ответа:', response.status);
+        console.log('📊 Статус ответа:', response.status);
         
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Ошибка HTTP:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}`);
+            if (response.status === 403) {
+                throw new Error('Доступ запрещен. Возможно, вы не преподаватель.');
+            }
+            throw new Error(`Ошибка сервера: ${response.status}`);
         }
 
         const result = await response.json();
-        console.log('Полученные курсы:', result);
+        console.log('✅ Полученные курсы:', result);
         
         if (result.courses && result.courses.length > 0) {
             displayTeacherCourses(result.courses);
@@ -91,7 +92,7 @@ async function loadTeacherCourses() {
         }
         
     } catch (error) {
-        console.error('Ошибка загрузки курсов:', error);
+        console.error('❌ Ошибка загрузки курсов:', error);
         document.getElementById('courses-list').innerHTML = `
             <div class="error-message">
                 <h4>Ошибка загрузки</h4>
@@ -190,6 +191,8 @@ function initTeacherModals() {
 }
 
 async function loadTeacherTabData(tabId) {
+    console.log('🔄 Загрузка данных для вкладки:', tabId);
+    
     switch(tabId) {
         case 'disciplines':
             await loadTeacherCourses();
@@ -262,6 +265,16 @@ async function loadTeacherCourses() {
 function displayTeacherCourses(courses) {
     const container = document.getElementById('courses-list');
     
+    if (!courses || courses.length === 0) {
+        container.innerHTML = `
+            <div class="no-courses">
+                <p>У вас пока нет созданных курсов</p>
+                <p>Создайте первый курс, нажав кнопку "Создать новый курс"</p>
+            </div>
+        `;
+        return;
+    }
+    
     container.innerHTML = courses.map(course => `
         <div class="course-card" data-course-id="${course.id}">
             <div class="course-header">
@@ -305,8 +318,10 @@ async function createNewCourse() {
         name: formData.get('course-name'),
         description: formData.get('course-description'),
         discipline: formData.get('course-discipline'),
-        password: formData.get('course-password')
+        password: formData.get('course-password') || null
     };
+    
+    console.log('🔄 Создание курса:', courseData);
     
     // Валидация
     if (!courseData.name || !courseData.discipline) {
@@ -324,12 +339,16 @@ async function createNewCourse() {
             body: JSON.stringify(courseData)
         });
 
+        console.log('📊 Статус создания курса:', response.status);
+        
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Ошибка создания курса');
+            const errorData = await response.json();
+            console.error('❌ Ошибка API:', errorData);
+            throw new Error(errorData.error || 'Ошибка создания курса');
         }
 
         const result = await response.json();
+        console.log('✅ Курс создан:', result);
         
         showAlert(result.message, 'success');
         document.getElementById('create-course-modal').style.display = 'none';
@@ -339,7 +358,7 @@ async function createNewCourse() {
         await loadTeacherCourses();
         
     } catch (error) {
-        console.error('Ошибка создания курса:', error);
+        console.error('❌ Ошибка создания курса:', error);
         showAlert('Ошибка создания курса: ' + error.message, 'error');
     }
 }
