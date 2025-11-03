@@ -7,7 +7,6 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const app = express();
 
-// Порт из переменной окружения
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -91,14 +90,23 @@ async function initDatabase() {
         discipline VARCHAR(100) NOT NULL,
         password VARCHAR(255),
         teacher_id INTEGER REFERENCES users(id),
+        invite_code VARCHAR(50) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Таблица courses готова');
 
-    // Проверим существующие курсы
-    const coursesCheck = await db.query('SELECT COUNT(*) as count FROM courses');
-    console.log(`📊 В таблице courses: ${coursesCheck.rows[0].count} записей`);
+    // Таблица для связи студентов с курсами
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS course_students (
+        id SERIAL PRIMARY KEY,
+        course_id INTEGER REFERENCES courses(id),
+        student_id INTEGER REFERENCES users(id),
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(course_id, student_id)
+      )
+    `);
+    console.log('✅ Таблица course_students готова');
 
     // Таблица для лабораторных работ
     await db.query(`
@@ -108,8 +116,11 @@ async function initDatabase() {
         description TEXT,
         course_id INTEGER REFERENCES courses(id),
         template_code TEXT,
+        start_date TIMESTAMP,
         deadline TIMESTAMP,
         max_score INTEGER DEFAULT 10,
+        attempts INTEGER DEFAULT 1,
+        requirements TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -476,6 +487,7 @@ app.delete('/api/profile', requireAuth, async (req, res) => {
 
     // Удаляем пользователя и все связанные данные
     await db.query('DELETE FROM submissions WHERE student_id = $1', [userId]);
+    await db.query('DELETE FROM course_students WHERE student_id = $1', [userId]);
     await db.query('DELETE FROM labs WHERE course_id IN (SELECT id FROM courses WHERE teacher_id = $1)', [userId]);
     await db.query('DELETE FROM courses WHERE teacher_id = $1', [userId]);
     await db.query('DELETE FROM users WHERE id = $1', [userId]);
@@ -496,131 +508,241 @@ app.delete('/api/profile', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка при удалении профиля' });
   }
 });
+
 // Получение курсов преподавателя
 app.get('/api/teacher/courses', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'teacher') {
-        return res.status(403).json({ error: 'Доступ только для преподавателей' });
-    }
+  if (req.session.user.role !== 'teacher') {
+    return res.status(403).json({ error: 'Доступ только для преподавателей' });
+  }
 
-    try {
-        const result = await db.query(
-            'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
-            [req.session.user.id]
-        );
-        
-        console.log(`📊 Найдено курсов: ${result.rows.length}`);
-        res.json({ courses: result.rows });
-    } catch (error) {
-        console.error('❌ Ошибка получения курсов:', error);
-        res.status(500).json({ error: 'Ошибка базы данных' });
-    }
+  try {
+    const result = await db.query(
+      'SELECT * FROM courses WHERE teacher_id = $1 ORDER BY created_at DESC',
+      [req.session.user.id]
+    );
+    
+    console.log(`📊 Найдено курсов: ${result.rows.length}`);
+    res.json({ courses: result.rows });
+  } catch (error) {
+    console.error('❌ Ошибка получения курсов:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
 });
 
 // Создание курса
 app.post('/api/courses', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'teacher') {
-        return res.status(403).json({ error: 'Доступ только для преподавателей' });
-    }
+  if (req.session.user.role !== 'teacher') {
+    return res.status(403).json({ error: 'Доступ только для преподавателей' });
+  }
 
-    const { name, description, discipline, password } = req.body;
+  const { name, description, discipline, password } = req.body;
 
-    if (!name || !discipline) {
-        return res.status(400).json({ error: 'Название и дисциплина обязательны' });
-    }
+  if (!name || !discipline) {
+    return res.status(400).json({ error: 'Название и дисциплина обязательны' });
+  }
 
-    try {
-        const result = await db.query(
-            `INSERT INTO courses (name, description, discipline, password, teacher_id) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, discipline, password, created_at`,
-            [name, description, discipline, password, req.session.user.id]
-        );
-        
-        console.log('✅ Курс создан с ID:', result.rows[0].id);
-        
-        res.json({ 
-            success: true, 
-            message: 'Курс успешно создан',
-            course: result.rows[0]
-        });
-    } catch (error) {
-        console.error('❌ Ошибка создания курса:', error);
-        res.status(500).json({ error: 'Ошибка при создании курса: ' + error.message });
-    }
+  try {
+    // Генерируем уникальный код приглашения
+    const inviteCode = crypto.randomBytes(8).toString('hex');
+
+    const result = await db.query(
+      `INSERT INTO courses (name, description, discipline, password, teacher_id, invite_code) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, description, discipline, password, invite_code, created_at`,
+      [name, description, discipline, password, req.session.user.id, inviteCode]
+    );
+    
+    console.log('✅ Курс создан с ID:', result.rows[0].id);
+    
+    res.json({ 
+      success: true, 
+      message: 'Курс успешно создан',
+      course: result.rows[0]
+    });
+  } catch (error) {
+    console.error('❌ Ошибка создания курса:', error);
+    res.status(500).json({ error: 'Ошибка при создании курса: ' + error.message });
+  }
 });
-
-
 
 // Получение информации о курсе
 app.get('/api/courses/:id', requireAuth, async (req, res) => {
-    try {
-        const result = await db.query(
-            'SELECT * FROM courses WHERE id = $1 AND teacher_id = $2',
-            [req.params.id, req.session.user.id]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Курс не найден' });
-        }
-        
-        res.json({ course: result.rows[0] });
-    } catch (error) {
-        console.error('❌ Ошибка получения курса:', error);
-        res.status(500).json({ error: 'Ошибка базы данных' });
+  try {
+    const result = await db.query(
+      'SELECT * FROM courses WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Курс не найден' });
     }
+    
+    res.json({ course: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Ошибка получения курса:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
 });
 
 // Получение лабораторных работ курса
 app.get('/api/courses/:id/labs', requireAuth, async (req, res) => {
-    try {
-        // Проверяем, принадлежит ли курс преподавателю
-        const courseCheck = await db.query(
-            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
-            [req.params.id, req.session.user.id]
-        );
-
-        if (courseCheck.rows.length === 0) {
-            return res.status(403).json({ error: 'Доступ запрещен' });
-        }
-
-        const result = await db.query(
-            'SELECT * FROM labs WHERE course_id = $1 ORDER BY created_at DESC',
-            [req.params.id]
-        );
-        
-        res.json({ labs: result.rows });
-    } catch (error) {
-        console.error('❌ Ошибка получения лабораторных работ:', error);
-        res.status(500).json({ error: 'Ошибка базы данных' });
-    }
+  try {
+    const result = await db.query(
+      'SELECT * FROM labs WHERE course_id = $1 ORDER BY created_at DESC',
+      [req.params.id]
+    );
+    
+    res.json({ labs: result.rows });
+  } catch (error) {
+    console.error('❌ Ошибка получения лабораторных работ:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
 });
 
 // Получение количества лабораторных работ курса
 app.get('/api/courses/:id/labs/count', requireAuth, async (req, res) => {
-    try {
-        // Проверяем, принадлежит ли курс преподавателю
-        const courseCheck = await db.query(
-            'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
-            [req.params.id, req.session.user.id]
-        );
-
-        if (courseCheck.rows.length === 0) {
-            return res.status(403).json({ error: 'Доступ запрещен' });
-        }
-
-        const result = await db.query(
-            'SELECT COUNT(*) as count FROM labs WHERE course_id = $1',
-            [req.params.id]
-        );
-        
-        res.json({ count: parseInt(result.rows[0].count) });
-    } catch (error) {
-        console.error('❌ Ошибка получения количества лабораторных работ:', error);
-        res.status(500).json({ error: 'Ошибка базы данных' });
-    }
+  try {
+    const result = await db.query(
+      'SELECT COUNT(*) as count FROM labs WHERE course_id = $1',
+      [req.params.id]
+    );
+    
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error('❌ Ошибка получения количества лабораторных работ:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
 });
 
-// Все остальные API маршруты (курсы, лабораторные работы и т.д.)
-// ... остальной код API ...
+// Создание лабораторной работы
+app.post('/api/labs', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'teacher') {
+    return res.status(403).json({ error: 'Доступ только для преподавателей' });
+  }
+
+  const { name, course_id, description, template_code, start_date, deadline, max_score, attempts, requirements } = req.body;
+
+  if (!name || !course_id || !description) {
+    return res.status(400).json({ error: 'Название, ID курса и описание обязательны' });
+  }
+
+  try {
+    // Проверяем, принадлежит ли курс преподавателю
+    const courseCheck = await db.query(
+      'SELECT id FROM courses WHERE id = $1 AND teacher_id = $2',
+      [course_id, req.session.user.id]
+    );
+
+    if (courseCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO labs (title, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [name, description, course_id, template_code, start_date, deadline, max_score, attempts, requirements]
+    );
+    
+    console.log('✅ Лабораторная работа создана с ID:', result.rows[0].id);
+    
+    res.json({ 
+      success: true, 
+      message: 'Лабораторная работа успешно создана',
+      lab: result.rows[0]
+    });
+  } catch (error) {
+    console.error('❌ Ошибка создания лабораторной работы:', error);
+    res.status(500).json({ error: 'Ошибка при создании лабораторной работы: ' + error.message });
+  }
+});
+
+// Получение студентов курса
+app.get('/api/courses/:id/students', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.group_name, u.faculty, cs.joined_at
+      FROM users u
+      JOIN course_students cs ON u.id = cs.student_id
+      WHERE cs.course_id = $1
+      ORDER BY u.last_name, u.first_name
+    `, [req.params.id]);
+    
+    res.json({ students: result.rows });
+  } catch (error) {
+    console.error('❌ Ошибка получения студентов:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
+});
+
+// Получение информации о приглашении
+app.get('/api/courses/invite/:code', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT c.*, u.first_name, u.last_name FROM courses c JOIN users u ON c.teacher_id = u.id WHERE c.invite_code = $1',
+      [req.params.code]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Код приглашения недействителен' });
+    }
+    
+    res.json({ course: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Ошибка получения информации о приглашении:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
+});
+
+// Присоединение к курсу по коду приглашения
+app.post('/api/courses/join', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Только студенты могут присоединяться к курсам' });
+  }
+
+  const { invite_code } = req.body;
+  const studentId = req.session.user.id;
+
+  if (!invite_code) {
+    return res.status(400).json({ error: 'Код приглашения обязателен' });
+  }
+
+  try {
+    // Находим курс по коду приглашения
+    const courseResult = await db.query(
+      'SELECT id FROM courses WHERE invite_code = $1',
+      [invite_code]
+    );
+
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Код приглашения недействителен' });
+    }
+
+    const courseId = courseResult.rows[0].id;
+
+    // Проверяем, не присоединен ли уже студент к курсу
+    const existingResult = await db.query(
+      'SELECT id FROM course_students WHERE course_id = $1 AND student_id = $2',
+      [courseId, studentId]
+    );
+
+    if (existingResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Вы уже присоединены к этому курсу' });
+    }
+
+    // Добавляем студента к курсу
+    await db.query(
+      'INSERT INTO course_students (course_id, student_id) VALUES ($1, $2)',
+      [courseId, studentId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Вы успешно присоединились к курсу'
+    });
+  } catch (error) {
+    console.error('❌ Ошибка присоединения к курсу:', error);
+    res.status(500).json({ error: 'Ошибка при присоединении к курсу: ' + error.message });
+  }
+});
 
 // Все остальные GET запросы отдаем index.html (для SPA)
 app.get('*', (req, res) => {

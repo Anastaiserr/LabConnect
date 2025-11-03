@@ -1,555 +1,381 @@
 // js/student-dashboard.js
 // Функциональность личного кабинета студента
 
-// js/student-dashboard.js
-// Функциональность личного кабинета студента
-
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ student-dashboard.js загружен');
     initStudentDashboard();
 });
 
 async function initStudentDashboard() {
+    console.log('🎯 Инициализация личного кабинета студента');
+    
     // Инициализация вкладок
-    initTabs();
+    initStudentTabs();
+    
+    // Инициализация модальных окон
+    initStudentModals();
     
     // Загрузка данных студента
     await loadStudentData();
     
-    // Загрузка заданий
-    loadStudentTasks();
+    // Загружаем курсы если активна соответствующая вкладка
+    const activeTab = document.querySelector('.nav-link.active');
+    if (activeTab && activeTab.getAttribute('data-tab') === 'disciplines') {
+        console.log('📚 Загружаем курсы студента...');
+        await loadStudentCourses();
+    }
     
-    // Инициализация календаря
-    initCalendar();
-    
-    // Инициализация модальных окон уже в main.js
+    console.log('✅ Личный кабинет студента инициализирован');
 }
 
-function initTabs() {
+function initStudentTabs() {
+    console.log('🔧 Инициализация вкладок студента');
+    
     const navLinks = document.querySelectorAll('.nav-link');
-    const tabContents = document.querySelectorAll('.tab-content');
     
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
+            const tabId = this.getAttribute('data-tab');
+            console.log('🔄 Переключение на вкладку:', tabId);
+            
             // Убрать активный класс со всех ссылок и вкладок
             navLinks.forEach(l => l.classList.remove('active'));
-            tabContents.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             
             // Добавить активный класс к текущей ссылке
             this.classList.add('active');
             
             // Показать соответствующую вкладку
-            const tabId = this.getAttribute('data-tab');
-            document.getElementById(tabId).classList.add('active');
-            
-            // Загрузить данные для вкладки при необходимости
-            loadTabData(tabId);
-        });
-    });
-}
-
-async function loadStudentData() {
-    try {
-        const response = await API.getCurrentUser();
-        if (response.user) {
-            const user = response.user;
-            
-            // Заполнение данных в профиле реальными данными
-            document.getElementById('student-name').textContent = user.firstName + ' ' + user.lastName;
-            document.getElementById('user-group').textContent = 'Группа: ' + (user.group || 'Не указана');
-            document.getElementById('profile-firstname').textContent = user.firstName;
-            document.getElementById('profile-lastname').textContent = user.lastName;
-            document.getElementById('profile-email').textContent = user.email;
-            document.getElementById('profile-group').textContent = user.group || 'Не указана';
-            document.getElementById('profile-faculty').textContent = user.faculty || 'Не указан';
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки данных студента:', error);
-        // Если не авторизован, перенаправляем на вход
-        window.location.href = 'login.html';
-    }
-}
-
-// Остальные функции остаются без изменений...
-
-function loadStudentTasks() {
-    // В реальном приложении здесь будет запрос к API
-    const tasks = [
-        {
-            id: 1,
-            title: 'Лабораторная работа 1: Основы HTML',
-            course: 'Веб-технологии',
-            deadline: '2025-06-10',
-            status: 'completed',
-            score: 9,
-            maxScore: 10
-        },
-        {
-            id: 2,
-            title: 'Лабораторная работа 2: CSS стилизация',
-            course: 'Веб-технологии',
-            deadline: '2025-06-17',
-            status: 'pending',
-            score: null,
-            maxScore: 10
-        },
-        {
-            id: 3,
-            title: 'Лабораторная работа 3: JavaScript основы',
-            course: 'Веб-технологии',
-            deadline: '2025-06-24',
-            status: 'active',
-            score: null,
-            maxScore: 10
-        },
-        {
-            id: 4,
-            title: 'Лабораторная работа 1: Алгоритмы сортировки',
-            course: 'Алгоритмы и структуры данных',
-            deadline: '2025-06-05',
-            status: 'overdue',
-            score: null,
-            maxScore: 10
-        }
-    ];
-    
-    displayTasks(tasks);
-}
-
-function displayTasks(tasks) {
-    const container = document.getElementById('tasks-container');
-    
-    if (tasks.length === 0) {
-        container.innerHTML = '<p class="no-data">Нет заданий</p>';
-        return;
-    }
-    
-    container.innerHTML = tasks.map(task => `
-        <div class="task-card" data-task-id="${task.id}">
-            <div class="task-header">
-                <h4 class="task-title">${task.title}</h4>
-                <span class="task-status status-${task.status}">
-                    ${getStatusText(task.status)}
-                </span>
-            </div>
-            <div class="task-meta">
-                <span>Курс: ${task.course}</span>
-                <span>Дедлайн: ${formatDate(task.deadline)}</span>
-                ${task.score ? `<span>Оценка: ${task.score}/${task.maxScore}</span>` : ''}
-            </div>
-            <div class="task-actions">
-                ${task.status === 'active' ? `
-                    <button class="btn btn-primary btn-sm start-task" data-task-id="${task.id}">
-                        Начать выполнение
-                    </button>
-                ` : ''}
-                ${task.status === 'completed' ? `
-                    <button class="btn btn-secondary btn-sm view-result" data-task-id="${task.id}">
-                        Посмотреть результат
-                    </button>
-                ` : ''}
-                ${task.status === 'pending' ? `
-                    <button class="btn btn-secondary btn-sm" disabled>
-                        Ожидает проверки
-                    </button>
-                ` : ''}
-                ${task.status === 'overdue' ? `
-                    <button class="btn btn-warning btn-sm submit-late" data-task-id="${task.id}">
-                        Сдать позже
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `).join('');
-    
-    // Добавление обработчиков событий для кнопок
-    addTaskEventHandlers();
-}
-
-function addTaskEventHandlers() {
-    // Обработчик для кнопки "Начать выполнение"
-    document.querySelectorAll('.start-task').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const taskId = this.getAttribute('data-task-id');
-            openTask(taskId);
-        });
-    });
-    
-    // Обработчик для кнопки "Посмотреть результат"
-    document.querySelectorAll('.view-result').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const taskId = this.getAttribute('data-task-id');
-            viewTaskResult(taskId);
-        });
-    });
-    
-    // Обработчик для кнопки "Сдать позже"
-    document.querySelectorAll('.submit-late').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const taskId = this.getAttribute('data-task-id');
-            submitLateWork(taskId);
-        });
-    });
-}
-
-function openTask(taskId) {
-    // В реальном приложении здесь будет переход к заданию
-    showAlert('Открытие задания...', 'info');
-    
-    // Симуляция открытия модального окна с заданием
-    setTimeout(() => {
-        document.getElementById('submit-work-modal').style.display = 'block';
-    }, 500);
-}
-
-function viewTaskResult(taskId) {
-    // В реальном приложении здесь будет показ результата
-    showAlert('Просмотр результата задания...', 'info');
-}
-
-function submitLateWork(taskId) {
-    // В реальном приложении здесь будет отправка запроса на сдачу позже
-    showAlert('Запрос на сдачу работы отправлен преподавателю', 'warning');
-}
-
-function initCalendar() {
-    // Инициализация календаря
-    const calendar = document.getElementById('calendar-widget');
-    const currentMonthElement = document.getElementById('current-month');
-    const prevBtn = document.getElementById('prev-month');
-    const nextBtn = document.getElementById('next-month');
-    
-    let currentDate = new Date();
-    
-    function renderCalendar() {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        
-        // Обновление отображаемого месяца
-        currentMonthElement.textContent = currentDate.toLocaleDateString('ru-RU', { 
-            month: 'long', 
-            year: 'numeric' 
-        });
-        
-        // Генерация календаря
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const daysInMonth = lastDay.getDate();
-        const startingDay = firstDay.getDay();
-        
-        let calendarHTML = '<div class="calendar-grid">';
-        
-        // Заголовки дней недели
-        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        days.forEach(day => {
-            calendarHTML += `<div class="calendar-day header">${day}</div>`;
-        });
-        
-        // Пустые ячейки перед первым днем месяца
-        for (let i = 0; i < (startingDay === 0 ? 6 : startingDay - 1); i++) {
-            calendarHTML += '<div class="calendar-day other-month"></div>';
-        }
-        
-        // Дни месяца
-        const today = new Date();
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
-            const isToday = date.toDateString() === today.toDateString();
-            const dayClass = isToday ? 'calendar-day today' : 'calendar-day';
-            
-            calendarHTML += `<div class="${dayClass}">${day}`;
-            
-            // Добавление событий (заданий с дедлайнами)
-            if (day === 10 || day === 17 || day === 24) {
-                calendarHTML += `<div class="calendar-event">ЛР по веб-технологиям</div>`;
+            const tabContent = document.getElementById(tabId);
+            if (tabContent) {
+                tabContent.classList.add('active');
             }
             
-            calendarHTML += '</div>';
-        }
-        
-        calendarHTML += '</div>';
-        calendar.innerHTML = calendarHTML;
-    }
-    
-    // Обработчики для кнопок навигации
-    prevBtn.addEventListener('click', function() {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar();
+            // Загрузить данные для вкладки
+            loadStudentTabData(tabId);
+        });
     });
-    
-    nextBtn.addEventListener('click', function() {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        renderCalendar();
-    });
-    
-    // Первоначальная отрисовка
-    renderCalendar();
 }
 
-function initModals() {
-    // Инициализация модальных окон
-    const editProfileBtn = document.getElementById('edit-profile');
-    const editProfileModal = document.getElementById('edit-profile-modal');
-    const submitWorkModal = document.getElementById('submit-work-modal');
+function initStudentModals() {
+    console.log('🔧 Инициализация модальных окон студента');
     
-    // Обработчик для редактирования профиля
-    if (editProfileBtn) {
-        editProfileBtn.addEventListener('click', function() {
-            openEditProfileModal();
+    // Кнопка присоединения к курсу
+    const joinCourseBtn = document.getElementById('join-course-btn');
+    if (joinCourseBtn) {
+        joinCourseBtn.addEventListener('click', function() {
+            console.log('🎯 Кнопка присоединения к курсу нажата');
+            document.getElementById('join-course-modal').style.display = 'block';
         });
     }
     
-    // Закрытие модальных окон при клике на крестик
-    document.querySelectorAll('.close').forEach(closeBtn => {
-        closeBtn.addEventListener('click', function() {
-            this.closest('.modal').style.display = 'none';
+    // Форма присоединения к курсу
+    const joinCourseForm = document.getElementById('join-course-form');
+    if (joinCourseForm) {
+        joinCourseForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('📝 Форма присоединения к курсу отправлена');
+            joinCourse();
+        });
+    }
+    
+    // Закрытие модальных окон
+    document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         });
     });
     
-    // Закрытие модальных окон при клике вне окна
+    // Закрытие при клике вне окна
     window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
         }
     });
     
-    // Обработчик формы редактирования профиля
-    const profileEditForm = document.getElementById('profile-edit-form');
-    if (profileEditForm) {
-        profileEditForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            saveProfileChanges();
-        });
-    }
+    console.log('✅ Модальные окна студента инициализированы');
+}
+
+async function loadStudentTabData(tabId) {
+    console.log('📂 Загрузка данных для вкладки:', tabId);
     
-    // Обработчик отмены редактирования
-    const cancelEditBtn = document.getElementById('cancel-edit');
-    if (cancelEditBtn) {
-        cancelEditBtn.addEventListener('click', function() {
-            editProfileModal.style.display = 'none';
-        });
-    }
-    
-    // Обработчик формы сдачи работы
-    const workSubmitForm = document.getElementById('work-submit-form');
-    if (workSubmitForm) {
-        workSubmitForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            submitWork();
-        });
-    }
-    
-    // Обработчик отмены сдачи работы
-    const cancelSubmitBtn = document.getElementById('cancel-submit');
-    if (cancelSubmitBtn) {
-        cancelSubmitBtn.addEventListener('click', function() {
-            submitWorkModal.style.display = 'none';
-        });
+    switch(tabId) {
+        case 'disciplines':
+            await loadStudentCourses();
+            break;
+        case 'my-works':
+            await loadStudentWorks();
+            break;
+        case 'deadlines':
+            await loadStudentDeadlines();
+            break;
+        case 'settings':
+            loadStudentSettings();
+            break;
+        case 'chat':
+            loadStudentChats();
+            break;
     }
 }
 
-function openEditProfileModal() {
-    const modal = document.getElementById('edit-profile-modal');
-    
-    // Заполнение формы текущими данными
-    document.getElementById('edit-firstname').value = document.getElementById('profile-firstname').textContent;
-    document.getElementById('edit-lastname').value = document.getElementById('profile-lastname').textContent;
-    document.getElementById('edit-email').value = document.getElementById('profile-email').textContent;
-    document.getElementById('edit-group').value = document.getElementById('profile-group').textContent;
-    
-    modal.style.display = 'block';
+async function loadStudentData() {
+    try {
+        console.log('👤 Загрузка данных студента...');
+        const response = await fetch('/api/user', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Данные студента загружены:', data.user);
+            
+            // Обновляем информацию в интерфейсе
+            updateStudentUI(data.user);
+        } else {
+            console.error('❌ Ошибка загрузки данных студента');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки данных студента:', error);
+    }
 }
 
-function saveProfileChanges() {
-    const formData = new FormData(document.getElementById('profile-edit-form'));
+function updateStudentUI(user) {
+    // Обновляем имя в навигации
+    const userNameElements = document.querySelectorAll('.user-name');
+    userNameElements.forEach(el => {
+        el.textContent = `${user.firstName} ${user.lastName}`;
+    });
     
-    // Обновление данных в интерфейсе
-    document.getElementById('profile-firstname').textContent = formData.get('edit-firstname');
-    document.getElementById('profile-lastname').textContent = formData.get('edit-lastname');
-    document.getElementById('profile-email').textContent = formData.get('edit-email');
-    document.getElementById('profile-group').textContent = formData.get('edit-group');
-    document.getElementById('student-name').textContent = formData.get('edit-firstname') + ' ' + formData.get('edit-lastname');
+    // Обновляем информацию в профиле
+    const profileName = document.getElementById('profile-name');
+    if (profileName) {
+        profileName.textContent = `${user.firstName} ${user.lastName}`;
+    }
     
-    // Закрытие модального окна
-    document.getElementById('edit-profile-modal').style.display = 'none';
+    const profileRole = document.getElementById('profile-role');
+    if (profileRole) {
+        profileRole.textContent = user.role === 'student' ? 'Студент' : 'Преподаватель';
+    }
     
-    showAlert('Профиль успешно обновлен', 'success');
+    const profileEmail = document.getElementById('profile-email');
+    if (profileEmail) {
+        profileEmail.textContent = user.email;
+    }
+    
+    const profileGroup = document.getElementById('profile-group');
+    if (profileGroup) {
+        profileGroup.textContent = user.group || 'Не указана';
+    }
+    
+    const profileFaculty = document.getElementById('profile-faculty');
+    if (profileFaculty) {
+        profileFaculty.textContent = user.faculty || 'Не указан';
+    }
 }
 
-function submitWork() {
-    const filesInput = document.getElementById('work-files');
-    const comment = document.getElementById('work-comment').value;
+async function loadStudentCourses() {
+    try {
+        console.log('📚 Загрузка курсов студента...');
+        
+        // TODO: Реализовать API для получения курсов студента
+        // Временно используем заглушку
+        const courses = await getStudentCourses();
+        displayStudentCourses(courses);
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки курсов:', error);
+        showNotification('Ошибка загрузки курсов', 'error');
+    }
+}
+
+async function getStudentCourses() {
+    // TODO: Заменить на реальный API вызов
+    // Временно возвращаем пустой массив
+    return [];
+}
+
+function displayStudentCourses(courses) {
+    const coursesContainer = document.getElementById('student-courses-container');
     
-    if (filesInput.files.length === 0) {
-        showAlert('Пожалуйста, прикрепите файлы с выполненной работой', 'error');
+    if (!coursesContainer) {
+        console.error('❌ Контейнер курсов студента не найден');
         return;
     }
     
-    // Симуляция отправки работы
-    showAlert('Работа отправлена на проверку', 'success');
-    
-    // Закрытие модального окна
-    document.getElementById('submit-work-modal').style.display = 'none';
-    
-    // Очистка формы
-    filesInput.value = '';
-    document.getElementById('work-comment').value = '';
-}
-
-function loadTabData(tabId) {
-    switch(tabId) {
-        case 'available-tasks':
-            loadAvailableTasks();
-            break;
-        case 'submitted-works':
-            loadSubmittedWorks();
-            break;
-        case 'chat':
-            loadChats();
-            break;
+    if (!courses || courses.length === 0) {
+        coursesContainer.innerHTML = `
+            <div class="empty-state">
+                <h3>У вас пока нет курсов</h3>
+                <p>Присоединитесь к курсу, используя код приглашения от преподавателя</p>
+                <button class="btn btn-primary" onclick="document.getElementById('join-course-modal').style.display='block'">
+                    Присоединиться к курсу
+                </button>
+            </div>
+        `;
+        return;
     }
-}
-
-function loadAvailableTasks() {
-    // В реальном приложении здесь будет запрос к API
-    const courses = [
-        {
-            id: 1,
-            name: 'Веб-технологии',
-            teacher: 'Измайлов Н.Н.',
-            labs: [
-                { id: 1, title: 'ЛР1: Основы HTML', deadline: '2025-06-10' },
-                { id: 2, title: 'ЛР2: CSS стилизация', deadline: '2025-06-17' },
-                { id: 3, title: 'ЛР3: JavaScript основы', deadline: '2025-06-24' }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Алгоритмы и структуры данных',
-            teacher: 'Петров А.В.',
-            labs: [
-                { id: 4, title: 'ЛР1: Алгоритмы сортировки', deadline: '2025-06-05' },
-                { id: 5, title: 'ЛР2: Деревья поиска', deadline: '2025-06-12' }
-            ]
-        }
-    ];
     
-    displayAvailableTasks(courses);
-}
-
-function displayAvailableTasks(courses) {
-    const container = document.querySelector('.courses-list');
-    
-    container.innerHTML = courses.map(course => `
-        <div class="course-card">
+    coursesContainer.innerHTML = courses.map(course => `
+        <div class="course-card" data-course-id="${course.id}">
             <div class="course-header">
-                <h4 class="course-title">${course.name}</h4>
-                <span class="course-teacher">${course.teacher}</span>
+                <h3 class="course-title">${course.name}</h3>
+                <span class="course-status ${course.status}">${getStatusText(course.status)}</span>
             </div>
-            <div class="course-labs">
-                <h5>Лабораторные работы:</h5>
-                ${course.labs.map(lab => `
-                    <div class="lab-item">
-                        <span class="lab-title">${lab.title}</span>
-                        <span class="lab-deadline">До: ${formatDate(lab.deadline)}</span>
-                        <button class="btn btn-primary btn-sm start-lab" data-lab-id="${lab.id}">
-                            Начать
-                        </button>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-}
-
-function loadSubmittedWorks() {
-    // В реальном приложении здесь будет запрос к API
-    const submittedWorks = [
-        {
-            id: 1,
-            title: 'Лабораторная работа 1: Основы HTML',
-            course: 'Веб-технологии',
-            submitDate: '2025-05-28',
-            score: 9,
-            maxScore: 10,
-            teacherComment: 'Хорошая работа, но нужно улучшить семантическую разметку.'
-        },
-        {
-            id: 2,
-            title: 'Лабораторная работа 2: CSS стилизация',
-            course: 'Веб-технологии',
-            submitDate: '2025-06-15',
-            score: null,
-            maxScore: 10,
-            teacherComment: null
-        }
-    ];
-    
-    displaySubmittedWorks(submittedWorks);
-}
-
-function displaySubmittedWorks(works) {
-    const container = document.querySelector('.submitted-works-list');
-    
-    container.innerHTML = works.map(work => `
-        <div class="work-card">
-            <div class="work-header">
-                <h4 class="work-title">${work.title}</h4>
-                <span class="work-status status-${work.score ? 'checked' : 'pending'}">
-                    ${work.score ? 'Проверено' : 'Ожидает проверки'}
-                </span>
-            </div>
-            <div class="work-meta">
-                <span>Курс: ${work.course}</span>
-                <span>Дата сдачи: ${formatDate(work.submitDate)}</span>
-                ${work.score ? `<span>Оценка: ${work.score}/${work.maxScore}</span>` : ''}
-            </div>
-            ${work.teacherComment ? `
-                <div class="work-comment">
-                    <strong>Комментарий преподавателя:</strong>
-                    <p>${work.teacherComment}</p>
+            <div class="course-info">
+                <p class="course-description">${course.description || 'Описание отсутствует'}</p>
+                <div class="course-meta">
+                    <span class="meta-item">
+                        <i class="fas fa-book"></i>
+                        ${course.discipline}
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-user-tie"></i>
+                        ${course.teacher_name}
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-file-alt"></i>
+                        Лабораторных: ${course.labs_count}
+                    </span>
                 </div>
-            ` : ''}
+            </div>
+            <div class="course-footer">
+                <button class="btn btn-primary" onclick="viewCourse(${course.id})">
+                    Перейти к курсу
+                </button>
+            </div>
         </div>
     `).join('');
-}
-
-function loadChats() {
-    // В реальном приложении здесь будет запрос к API
-    const chats = [
-        { id: 1, name: 'Веб-технологии - Общий чат', type: 'group', unread: 2 },
-        { id: 2, name: 'Измайлов Н.Н.', type: 'teacher', unread: 0 },
-        { id: 3, name: 'Алгоритмы - Общий чат', type: 'group', unread: 0 }
-    ];
     
-    displayChats(chats);
+    console.log(`✅ Отображено ${courses.length} курсов студента`);
 }
 
-function displayChats(chats) {
-    const container = document.querySelector('.chats');
-    
-    container.innerHTML = chats.map(chat => `
-        <div class="chat-item" data-chat-id="${chat.id}">
-            <div class="chat-name">${chat.name}</div>
-            ${chat.unread > 0 ? `<span class="unread-count">${chat.unread}</span>` : ''}
-        </div>
-    `).join('');
-}
-
-// Вспомогательные функции
 function getStatusText(status) {
     const statusMap = {
-        'active': 'Активно',
-        'completed': 'Выполнено',
-        'pending': 'Ожидает проверки',
-        'overdue': 'Просрочено',
-        'checked': 'Проверено'
+        'active': 'Активный',
+        'completed': 'Завершен',
+        'pending': 'Ожидание'
     };
     return statusMap[status] || status;
 }
 
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU');
+async function joinCourse() {
+    const form = document.getElementById('join-course-form');
+    const formData = new FormData(form);
+    
+    const inviteCode = formData.get('invite-code');
+    
+    if (!inviteCode) {
+        showNotification('Введите код приглашения', 'error');
+        return;
+    }
+    
+    console.log('🔑 Попытка присоединения с кодом:', inviteCode);
+    
+    try {
+        // Сначала проверяем код приглашения
+        const checkResponse = await fetch(`/api/courses/invite/${inviteCode}`, {
+            credentials: 'include'
+        });
+        
+        if (!checkResponse.ok) {
+            const errorData = await checkResponse.json();
+            throw new Error(errorData.error || 'Неверный код приглашения');
+        }
+        
+        const courseData = await checkResponse.json();
+        console.log('✅ Курс найден:', courseData.course);
+        
+        // Присоединяемся к курсу
+        const joinResponse = await fetch('/api/courses/join', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ invite_code: inviteCode }),
+            credentials: 'include'
+        });
+        
+        const joinResult = await joinResponse.json();
+        
+        if (joinResponse.ok) {
+            console.log('✅ Присоединение успешно');
+            showNotification(`Вы успешно присоединились к курсу "${courseData.course.name}"`, 'success');
+            
+            // Закрыть модальное окно
+            document.getElementById('join-course-modal').style.display = 'none';
+            
+            // Очистить форму
+            form.reset();
+            
+            // Обновить список курсов
+            await loadStudentCourses();
+        } else {
+            throw new Error(joinResult.error || 'Ошибка присоединения к курсу');
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка присоединения к курсу:', error);
+        showNotification(error.message, 'error');
+    }
+}
+
+// Функции для других вкладок (заглушки)
+async function loadStudentWorks() {
+    console.log('📝 Загрузка работ студента');
+    // TODO: Реализовать загрузку работ студента
+}
+
+async function loadStudentDeadlines() {
+    console.log('⏰ Загрузка дедлайнов студента');
+    // TODO: Реализовать загрузку дедлайнов
+}
+
+function loadStudentSettings() {
+    console.log('⚙️ Загрузка настроек студента');
+    // TODO: Реализовать загрузку настроек
+}
+
+function loadStudentChats() {
+    console.log('💬 Загрузка чатов студента');
+    // TODO: Реализовать загрузку чатов
+}
+
+function viewCourse(courseId) {
+    console.log('👀 Просмотр курса:', courseId);
+    showNotification('Функция просмотра курса в разработке', 'info');
+}
+
+// Вспомогательные функции
+function showNotification(message, type = 'info') {
+    console.log(`📢 Уведомление [${type}]: ${message}`);
+    
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-message">${message}</span>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    // Добавляем в контейнер уведомлений
+    const container = document.getElementById('notifications-container');
+    if (container) {
+        container.appendChild(notification);
+        
+        // Автоматическое удаление через 5 секунд
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
 }
