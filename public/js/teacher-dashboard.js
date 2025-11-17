@@ -508,9 +508,6 @@ function displayCourseLabs(labs) {
                 <p>${lab.description}</p>
             </div>
             <div class="lab-actions">
-                <button class="btn btn-secondary btn-sm edit-lab" data-lab-id="${lab.id}">
-                    Редактировать
-                </button>
                 <button class="btn btn-primary btn-sm view-submissions" data-lab-id="${lab.id}">
                     Работы студентов
                 </button>
@@ -527,14 +524,6 @@ function displayCourseLabs(labs) {
 
 // Обработчики событий для лабораторных работ
 function addLabEventHandlers() {
-    // Кнопка "Редактировать"
-    document.querySelectorAll('.edit-lab').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const labId = this.getAttribute('data-lab-id');
-            openEditLabModal(labId);
-        });
-    });
-    
     // Кнопка "Удалить"
     document.querySelectorAll('.delete-lab').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -701,9 +690,6 @@ async function updateLab() {
 // Обновите вкладку "Студенты" в модальном окне
 async function loadCourseStudents(courseId) {
     try {
-        const studentsTab = document.getElementById('students-tab');
-        studentsTab.innerHTML = '<div class="loading">Загрузка студентов...</div>';
-        
         const response = await fetch(`/api/courses/${courseId}/students`, {
             credentials: 'include'
         });
@@ -712,6 +698,7 @@ async function loadCourseStudents(courseId) {
             const result = await response.json();
             displayCourseStudents(result.students);
         } else if (response.status === 403) {
+            const studentsTab = document.getElementById('students-tab');
             studentsTab.innerHTML = `
                 <div class="error-message">
                     <p>Доступ к списку студентов запрещен</p>
@@ -722,13 +709,15 @@ async function loadCourseStudents(courseId) {
         }
     } catch (error) {
         console.error('Ошибка загрузки студентов:', error);
-        document.getElementById('students-tab').innerHTML = `
+        const studentsTab = document.getElementById('students-tab');
+        studentsTab.innerHTML = `
             <div class="error-message">
                 <p>Ошибка загрузки студентов: ${error.message}</p>
             </div>
         `;
     }
 }
+
 
 // Функция для отображения студентов
 function displayCourseStudents(students) {
@@ -804,7 +793,11 @@ async function searchStudents() {
         
         if (response.ok) {
             const result = await response.json();
-            displayStudentSearchResults(result.students || []);
+            if (result.students && result.students.length > 0) {
+                displayStudentSearchResults(result.students);
+            } else {
+                resultsContainer.innerHTML = '<div class="no-results">Студенты не найдены</div>';
+            }
         } else {
             throw new Error('Ошибка поиска');
         }
@@ -817,11 +810,6 @@ async function searchStudents() {
 // Отображение результатов поиска студентов
 function displayStudentSearchResults(students) {
     const container = document.getElementById('student-search-results-list');
-    
-    if (!students || students.length === 0) {
-        container.innerHTML = '<div class="no-results">Студенты не найдены</div>';
-        return;
-    }
     
     container.innerHTML = students.map(student => `
         <div class="search-student-card">
