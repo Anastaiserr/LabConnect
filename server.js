@@ -831,6 +831,28 @@ app.get('/api/courses/invite/:code/info', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
+
+// Получение информации о курсе по ID
+app.get('/api/courses/:id', requireAuth, async (req, res) => {
+    try {
+        const course = db.findCourseById(req.params.id);
+        
+        if (!course) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+
+        // Проверяем, что преподаватель имеет доступ к курсу
+        if (req.session.user.role === 'teacher' && course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        res.json({ course });
+    } catch (error) {
+        console.error('Ошибка получения курса:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
 // Все остальные GET запросы
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

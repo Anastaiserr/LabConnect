@@ -394,10 +394,17 @@ async function openCourseManagement(courseId) {
             
             // Загружаем инвайт-ссылку
             await loadInviteLink(courseId);
+            
+        } else if (response.status === 403) {
+            showAlert('Доступ к этому курсу запрещен', 'error');
+        } else if (response.status === 404) {
+            showAlert('Курс не найден', 'error');
+        } else {
+            throw new Error('Ошибка загрузки данных курса');
         }
     } catch (error) {
         console.error('❌ Ошибка загрузки данных курса:', error);
-        showAlert('Ошибка загрузки данных курса', 'error');
+        showAlert('Ошибка загрузки данных курса: ' + error.message, 'error');
     }
 }
 
@@ -417,6 +424,12 @@ async function loadCourseLabs(courseId) {
         if (response.ok) {
             const result = await response.json();
             displayCourseLabs(result.labs || []);
+        } else if (response.status === 403) {
+            labsList.innerHTML = `
+                <div class="error-message">
+                    <p>Доступ к лабораторным работам запрещен</p>
+                </div>
+            `;
         } else {
             throw new Error('Ошибка загрузки лабораторных работ');
         }
@@ -507,9 +520,22 @@ async function loadInviteLink(courseId) {
                     <button class="btn btn-primary" onclick="generateNewInvite(${courseId})">Создать ссылку-приглашение</button>
                 `;
             }
+        } else if (response.status === 403) {
+            const inviteSection = document.getElementById('invite-section');
+            inviteSection.innerHTML = `
+                <div class="error-message">
+                    <p>Доступ к созданию приглашений запрещен</p>
+                </div>
+            `;
         }
     } catch (error) {
         console.error('Ошибка загрузки инвайт-ссылки:', error);
+        const inviteSection = document.getElementById('invite-section');
+        inviteSection.innerHTML = `
+            <div class="error-message">
+                <p>Ошибка загрузки: ${error.message}</p>
+            </div>
+        `;
     }
 }
 
@@ -542,7 +568,7 @@ function copyInviteLink() {
     showAlert('Ссылка скопирована в буфер обмена', 'success');
 }
 
-// Обновите вкладку "Студенты" в модальном окне
+/// Обновите вкладку "Студенты" в модальном окне
 async function loadCourseStudents(courseId) {
     try {
         const studentsTab = document.getElementById('students-tab');
@@ -555,6 +581,12 @@ async function loadCourseStudents(courseId) {
         if (response.ok) {
             const result = await response.json();
             displayCourseStudents(result.students);
+        } else if (response.status === 403) {
+            studentsTab.innerHTML = `
+                <div class="error-message">
+                    <p>Доступ к списку студентов запрещен</p>
+                </div>
+            `;
         } else {
             throw new Error('Ошибка загрузки студентов');
         }
