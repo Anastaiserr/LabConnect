@@ -295,6 +295,106 @@ function checkUrlParams() {
     }
 }
 
+// Проверка параметров URL при загрузке страницы
+function checkUrlParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const courseId = urlParams.get('course');
+  const inviteCode = urlParams.get('invite');
+  
+  if (courseId) {
+    openEnrollModal(courseId);
+  } else if (inviteCode) {
+    openInviteModal(inviteCode);
+  }
+}
+
+// Функция для открытия модального окна с инвайтом
+async function openInviteModal(inviteCode) {
+  try {
+    const response = await fetch(`/api/courses/invite/${inviteCode}/info`, {
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      
+      // Показываем модальное окно с информацией о курсе
+      showInviteCourseModal(result.course, inviteCode);
+    } else {
+      const errorData = await response.json();
+      showAlert(errorData.error, 'error');
+    }
+  } catch (error) {
+    console.error('Ошибка проверки инвайта:', error);
+    showAlert('Ошибка проверки приглашения', 'error');
+  }
+}
+
+// Функция для отображения модального окна с инвайтом
+function showInviteCourseModal(course, inviteCode) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'block';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Приглашение на курс</h3>
+        <span class="close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="course-info">
+          <h4>${course.name}</h4>
+          <p><strong>Дисциплина:</strong> ${course.discipline}</p>
+          <p><strong>Преподаватель:</strong> ${course.teacher_name}</p>
+          ${course.description ? `<p><strong>Описание:</strong> ${course.description}</p>` : ''}
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Отмена</button>
+          <button type="button" class="btn btn-primary" onclick="enrollByInvite('${inviteCode}')">Записаться на курс</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+// Функция для записи по инвайту
+async function enrollByInvite(inviteCode) {
+  try {
+    const response = await fetch('/api/courses/enroll-by-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ inviteCode })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      showAlert(result.message, 'success');
+      
+      // Закрываем модальное окно
+      document.querySelector('.modal').remove();
+      
+      // Обновляем список курсов
+      await loadMyCourses();
+      
+      // Убираем параметр invite из URL
+      const url = new URL(window.location);
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', url);
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.error);
+    }
+  } catch (error) {
+    console.error('Ошибка записи по инвайту:', error);
+    showAlert(error.message, 'error');
+  }
+}
+
 function showAlert(message, type = 'info') {
     const existingAlerts = document.querySelectorAll('.alert');
     existingAlerts.forEach(alert => alert.remove());

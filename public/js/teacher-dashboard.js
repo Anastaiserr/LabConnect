@@ -146,6 +146,10 @@ function initCourseManagementTabs() {
             // Загрузить данные для вкладки
             if (tabId === 'labs' && currentCourseId) {
                 loadCourseLabs(currentCourseId);
+            } else if (tabId === 'students' && currentCourseId) {
+                loadCourseStudents(currentCourseId);
+            } else if (tabId === 'invite' && currentCourseId) {
+                loadInviteLink(currentCourseId);
             }
         });
     });
@@ -287,11 +291,8 @@ function displayTeacherCourses(courses) {
             <div class="course-header">
                 <h4 class="course-title">${course.name}</h4>
                 <div class="course-actions">
-                    <button class="btn btn-secondary btn-sm edit-course" data-course-id="${course.id}">
-                        Редактировать
-                    </button>
                     <button class="btn btn-primary btn-sm manage-course" data-course-id="${course.id}">
-                        Управление
+                        Управление курсом
                     </button>
                 </div>
             </div>
@@ -299,21 +300,20 @@ function displayTeacherCourses(courses) {
                 <span><strong>Дисциплина:</strong> ${course.discipline}</span>
                 ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
                 <span><strong>Создан:</strong> ${formatDate(course.created_at)}</span>
-                ${course.password ? `<span><strong>Пароль доступа:</strong> ${course.password}</span>` : ''}
             </div>
             <div class="course-stats">
                 <span>Лабораторных работ: <strong id="lab-count-${course.id}">0</strong></span>
-                <span>Студентов: <strong>0</strong></span>
+                <span>Студентов: <strong id="student-count-${course.id}">0</strong></span>
             </div>
         </div>
     `).join('');
     
-    // Добавляем обработчики событий для кнопок
     addCourseEventHandlers();
     
-    // Загружаем количество лабораторных работ для каждого курса
+    // Загружаем статистику для каждого курса
     courses.forEach(course => {
         loadCourseLabsCount(course.id);
+        loadCourseStudentsCount(course.id);
     });
 }
 
@@ -336,6 +336,25 @@ async function loadCourseLabsCount(courseId) {
     }
 }
 
+// Функция для загрузки количества студентов
+async function loadCourseStudentsCount(courseId) {
+    try {
+        const response = await fetch(`/api/courses/${courseId}/students`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            const countElement = document.getElementById(`student-count-${courseId}`);
+            if (countElement) {
+                countElement.textContent = result.students.length || 0;
+            }
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки количества студентов:', error);
+    }
+}
+
 // Обработчики событий для кнопок курсов
 function addCourseEventHandlers() {
     // Кнопка "Управление"
@@ -343,14 +362,6 @@ function addCourseEventHandlers() {
         btn.addEventListener('click', function() {
             const courseId = this.getAttribute('data-course-id');
             openCourseManagement(courseId);
-        });
-    });
-    
-    // Кнопка "Редактировать"
-    document.querySelectorAll('.edit-course').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courseId = this.getAttribute('data-course-id');
-            editCourse(courseId);
         });
     });
 }
@@ -377,6 +388,12 @@ async function openCourseManagement(courseId) {
             
             // Загружаем лабораторные работы курса
             await loadCourseLabs(courseId);
+            
+            // Загружаем студентов курса
+            await loadCourseStudents(courseId);
+            
+            // Загружаем инвайт-ссылку
+            await loadInviteLink(courseId);
         }
     } catch (error) {
         console.error('❌ Ошибка загрузки данных курса:', error);
@@ -461,6 +478,129 @@ function displayCourseLabs(labs) {
             </div>
         </div>
     `).join('');
+}
+
+// Функция для загрузки инвайт-ссылки
+async function loadInviteLink(courseId) {
+    try {
+        const response = await fetch(`/api/courses/${courseId}/invite`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            const inviteSection = document.getElementById('invite-section');
+            
+            if (result.inviteUrl) {
+                inviteSection.innerHTML = `
+                    <h4>Приглашение студентов</h4>
+                    <div class="invite-link">
+                        <input type="text" id="invite-url" class="form-control" value="${result.inviteUrl}" readonly>
+                        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()">Копировать</button>
+                    </div>
+                    <small class="form-text">Отправьте эту ссылку студентам для записи на курс</small>
+                    <button class="btn btn-warning btn-sm" onclick="generateNewInvite(${courseId})">Обновить ссылку</button>
+                `;
+            } else {
+                inviteSection.innerHTML = `
+                    <h4>Приглашение студентов</h4>
+                    <button class="btn btn-primary" onclick="generateNewInvite(${courseId})">Создать ссылку-приглашение</button>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки инвайт-ссылки:', error);
+    }
+}
+
+// Функция для генерации новой инвайт-ссылки
+async function generateNewInvite(courseId) {
+    try {
+        const response = await fetch(`/api/courses/${courseId}/generate-invite`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            loadInviteLink(courseId);
+        } else {
+            throw new Error('Ошибка генерации ссылки');
+        }
+    } catch (error) {
+        console.error('Ошибка генерации инвайта:', error);
+        showAlert('Ошибка создания ссылки', 'error');
+    }
+}
+
+// Функция для копирования инвайт-ссылки
+function copyInviteLink() {
+    const inviteInput = document.getElementById('invite-url');
+    inviteInput.select();
+    document.execCommand('copy');
+    showAlert('Ссылка скопирована в буфер обмена', 'success');
+}
+
+// Обновите вкладку "Студенты" в модальном окне
+async function loadCourseStudents(courseId) {
+    try {
+        const studentsTab = document.getElementById('students-tab');
+        studentsTab.innerHTML = '<div class="loading">Загрузка студентов...</div>';
+        
+        const response = await fetch(`/api/courses/${courseId}/students`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displayCourseStudents(result.students);
+        } else {
+            throw new Error('Ошибка загрузки студентов');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки студентов:', error);
+        document.getElementById('students-tab').innerHTML = `
+            <div class="error-message">
+                <p>Ошибка загрузки студентов: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Функция для отображения студентов
+function displayCourseStudents(students) {
+    const container = document.getElementById('students-tab');
+    
+    if (!students || students.length === 0) {
+        container.innerHTML = `
+            <div class="no-students">
+                <p>На курс еще не записан ни один студент</p>
+                <p>Используйте ссылку-приглашение выше для приглашения студентов</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="students-header">
+            <h4>Студенты курса (${students.length})</h4>
+        </div>
+        <div class="students-list">
+            ${students.map(student => `
+                <div class="student-card">
+                    <div class="student-info">
+                        <strong>${student.firstName} ${student.lastName}</strong>
+                        <div class="student-details">
+                            <span>Группа: ${student.group || 'Не указана'}</span>
+                            <span>Email: ${student.email}</span>
+                            <span>Записан: ${formatDate(student.createdAt)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 // Функция для открытия модального окна создания лабораторной работы
@@ -700,13 +840,14 @@ function showAlert(message, type = 'info') {
 }
 
 // Заглушки для остальных функций
-function editCourse(courseId) {
-    console.log('✏️ Редактирование курса:', courseId);
-    showAlert('Функция редактирования курса в разработке', 'info');
-}
-
 async function loadWorksToCheck() {
     console.log('📝 Загрузка работ для проверки...');
+    const worksList = document.querySelector('.works-list');
+    worksList.innerHTML = `
+        <div class="no-works">
+            <p>Работ для проверки пока нет</p>
+        </div>
+    `;
 }
 
 function loadStatementData() {
@@ -719,4 +860,10 @@ function loadSettingsData() {
 
 function loadTeacherChats() {
     console.log('💬 Загрузка чатов...');
+    const groupsList = document.querySelector('.groups-list');
+    groupsList.innerHTML = `
+        <div class="no-chats">
+            <p>Чаты появятся здесь, когда студенты запишутся на ваши курсы</p>
+        </div>
+    `;
 }

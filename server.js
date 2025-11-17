@@ -226,6 +226,72 @@ class JSONDatabase {
       (c.description && c.description.toLowerCase().includes(searchTerm))
     );
   }
+
+  // Получение студентов на курсе
+getStudentsOnCourse(courseId) {
+  const enrollmentIds = this.data.enrollments
+    .filter(e => e.course_id == courseId)
+    .map(e => e.student_id);
+  
+  return this.data.users.filter(u => 
+    u.role === 'student' && enrollmentIds.includes(u.id)
+  );
+}
+
+// Создание инвайт-ссылки
+generateInviteLink(courseId) {
+  const course = this.findCourseById(courseId);
+  if (!course) return null;
+  
+  // Создаем уникальный код для приглашения
+  const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+  if (!this.data.invites) {
+    this.data.invites = [];
+  }
+  
+  // Удаляем старые инвайты для этого курса
+  this.data.invites = this.data.invites.filter(i => i.course_id != courseId);
+  
+  const invite = {
+    code: inviteCode,
+    course_id: parseInt(courseId),
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 дней
+  };
+  
+  this.data.invites.push(invite);
+  this.save();
+  
+  return inviteCode;
+}
+
+// Вход по инвайт-коду
+enrollByInvite(inviteCode, studentId) {
+  if (!this.data.invites) {
+    throw new Error('Приглашение не найдено');
+  }
+  
+  const invite = this.data.invites.find(i => i.code === inviteCode);
+  if (!invite) {
+    throw new Error('Приглашение не найдено');
+  }
+  
+  // Проверяем срок действия
+  if (new Date() > new Date(invite.expires_at)) {
+    throw new Error('Срок действия приглашения истек');
+  }
+  
+  // Записываем студента
+  return this.enrollStudent(invite.course_id, studentId);
+}
+
+// Получение инвайт-кода курса
+getCourseInvite(courseId) {
+  if (!this.data.invites) return null;
+  
+  return this.data.invites.find(i => i.course_id == courseId);
+}
 }
 
 // Инициализация базы данных
@@ -618,7 +684,153 @@ app.get('/api/courses/:id/info', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка базы данных' });
   }
 });
+// Получение студентов на курсе
+app.get('/api/courses/:id/students', requireAuth, async (req, res) => {
+  try {
+    const course = db.findCourseById(req.params.id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
 
+    // Проверяем, что преподаватель имеет доступ к курсу
+    if (req.session.user.role === 'teacher' && course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    const students = db.getStudentsOnCourse(req.params.id);
+    
+    // Убираем пароли из ответа
+    const studentsWithoutPasswords = students.map(student => {
+      const { password, ...studentWithoutPassword } = student;
+      return studentWithoutPassword;
+    });
+
+    res.json({ students: studentsWithoutPasswords });
+  } catch (error) {
+    console.error('Ошибка получения студентов:', error);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  }
+});
+
+// Генерация инвайт-ссылки
+app.post('/api/courses/:id/generate-invite', requireAuth, async (req, res) => {
+  try {
+    const course = db.findCourseById(req.params.id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    // Проверяем, что преподаватель имеет доступ к курсу
+    if (course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    const inviteCode = db.generateInviteLink(req.params.id);
+    
+    res.json({ 
+      success: true, 
+      inviteCode,
+      inviteUrl: `${req.headers.origin}/student-courses.html?invite=${inviteCode}`,
+      message: 'Ссылка-приглашение создана'
+    });
+  } catch (error) {
+    console.error('Ошибка генерации инвайта:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Получение текущего инвайт-кода
+app.get('/api/courses/:id/invite', requireAuth, async (req, res) => {
+  try {
+    const course = db.findCourseById(req.params.id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    // Проверяем, что преподаватель имеет доступ к курсу
+    if (course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    const invite = db.getCourseInvite(req.params.id);
+    
+    res.json({ 
+      inviteCode: invite?.code || null,
+      inviteUrl: invite ? `${req.headers.origin}/student-courses.html?invite=${invite.code}` : null
+    });
+  } catch (error) {
+    console.error('Ошибка получения инвайта:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Вход по инвайт-коду (для студентов)
+app.post('/api/courses/enroll-by-invite', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Доступ только для студентов' });
+  }
+
+  const { inviteCode } = req.body;
+
+  if (!inviteCode) {
+    return res.status(400).json({ error: 'Код приглашения обязателен' });
+  }
+
+  try {
+    await db.enrollByInvite(inviteCode, req.session.user.id);
+    
+    res.json({ 
+      success: true, 
+      message: 'Вы успешно записались на курс по приглашению'
+    });
+  } catch (error) {
+    console.error('Ошибка записи по инвайту:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Проверка инвайт-кода
+app.get('/api/courses/invite/:code/info', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Доступ только для студентов' });
+  }
+
+  try {
+    const inviteCode = req.params.code;
+    
+    if (!db.data.invites) {
+      return res.status(404).json({ error: 'Приглашение не найдено' });
+    }
+    
+    const invite = db.data.invites.find(i => i.code === inviteCode);
+    if (!invite) {
+      return res.status(404).json({ error: 'Приглашение не найдено' });
+    }
+
+    // Проверяем срок действия
+    if (new Date() > new Date(invite.expires_at)) {
+      return res.status(400).json({ error: 'Срок действия приглашения истек' });
+    }
+
+    const course = db.findCourseById(invite.course_id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    const teacher = db.findUserById(course.teacher_id);
+    
+    res.json({ 
+      course: {
+        ...course,
+        teacher_name: `${teacher?.firstName} ${teacher?.lastName}`
+      },
+      expires: invite.expires_at
+    });
+  } catch (error) {
+    console.error('Ошибка проверки инвайта:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 // Все остальные GET запросы
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
