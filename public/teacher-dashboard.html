@@ -237,45 +237,116 @@
     </div>
 
     <!-- Модальное окно управления курсом -->
-    <div id="manage-course-modal" class="modal">
-        <div class="modal-content large">
-            <div class="modal-header">
-                <h3 id="manage-course-title">Управление курсом</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="course-management-tabs">
-                    <div class="tabs-header">
-                        <button class="tab-btn active" data-tab="labs">Лабораторные работы</button>
-                        <button class="tab-btn" data-tab="students">Студенты</button>
-                        <button class="tab-btn" data-tab="invite">Приглашение</button>
+<div id="manage-course-modal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="manage-course-title">Управление курсом</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="course-management-tabs">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="labs">Лабораторные работы</button>
+                    <button class="tab-btn" data-tab="students">Студенты</button>
+                </div>
+                
+                <!-- Вкладка Лабораторные работы -->
+                <div class="tab-content active" id="labs-tab">
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
                     </div>
-                    
-                    <!-- Вкладка Лабораторные работы -->
-                    <div class="tab-content active" id="labs-tab">
-                        <div class="tab-actions">
-                            <button class="btn btn-primary" id="create-lab-btn">Создать лабораторную работу</button>
+                    <div class="labs-list" id="course-labs-list">
+                        <div class="loading">Загрузка лабораторных работ...</div>
+                    </div>
+                </div>
+                
+                <!-- Вкладка Студенты -->
+                <div class="tab-content" id="students-tab">
+                    <div class="students-management">
+                        <div class="add-student-section">
+                            <h4>Добавить студентов</h4>
+                            <div class="search-student">
+                                <input type="text" id="student-search" class="form-control" 
+                                       placeholder="Поиск по имени, фамилии, группе или email...">
+                                <button class="btn btn-primary" id="search-student-btn">Поиск</button>
+                            </div>
+                            <div class="search-results" id="student-search-results" style="display: none;">
+                                <h5>Результаты поиска:</h5>
+                                <div class="search-results-list" id="student-search-results-list"></div>
+                            </div>
                         </div>
-                        <div class="labs-list" id="course-labs-list">
-                            <div class="loading">Загрузка лабораторных работ...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Вкладка Студенты -->
-                    <div class="tab-content" id="students-tab">
-                        <div class="loading">Загрузка студентов...</div>
-                    </div>
-                    
-                    <!-- Вкладка Приглашение -->
-                    <div class="tab-content" id="invite-tab">
-                        <div id="invite-section">
-                            <div class="loading">Загрузка...</div>
+                        
+                        <div class="current-students-section">
+                            <h4>Студенты курса (<span id="students-count">0</span>)</h4>
+                            <div class="students-list" id="course-students-list">
+                                <div class="loading">Загрузка студентов...</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Модальное окно редактирования лабораторной работы -->
+<div id="edit-lab-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Редактирование лабораторной работы</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="lab-edit-form">
+                <input type="hidden" id="edit-lab-id">
+                
+                <div class="form-group">
+                    <label for="edit-lab-name">Название работы *</label>
+                    <input type="text" id="edit-lab-name" name="edit-lab-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-lab-description">Описание работы *</label>
+                    <textarea id="edit-lab-description" name="edit-lab-description" class="form-control" rows="4" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-lab-template">Шаблон кода (необязательно)</label>
+                    <textarea id="edit-lab-template" name="edit-lab-template" class="form-control" rows="6"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-lab-start-date">Дата начала *</label>
+                        <input type="datetime-local" id="edit-lab-start-date" name="edit-lab-start-date" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-lab-deadline">Дедлайн сдачи *</label>
+                        <input type="datetime-local" id="edit-lab-deadline" name="edit-lab-deadline" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-lab-max-score">Максимальный балл *</label>
+                        <input type="number" id="edit-lab-max-score" name="edit-lab-max-score" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-lab-requirements">Дополнительные требования</label>
+                    <textarea id="edit-lab-requirements" name="edit-lab-requirements" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
     <!-- Модальное окно создания лабораторной работы -->
     <div id="create-lab-modal" class="modal">

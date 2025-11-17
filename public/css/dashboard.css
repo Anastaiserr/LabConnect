@@ -1175,3 +1175,52 @@ select.form-control {
   background: #f8f9fa;
   border-radius: 8px;
 }
+/* Стили для поиска студентов */
+.search-student {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.search-student input {
+    flex: 1;
+}
+
+.search-results {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.search-student-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid #3498db;
+}
+
+.student-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.no-results {
+    text-align: center;
+    padding: 1rem;
+    color: #666;
+}
+
+.add-student-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.current-students-section h4 {
+    margin-bottom: 1rem;
+}

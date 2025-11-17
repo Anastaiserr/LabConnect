@@ -292,6 +292,89 @@ getCourseInvite(courseId) {
   
   return this.data.invites.find(i => i.course_id == courseId);
 }
+
+// В класс JSONDatabase добавьте эти методы:
+
+// Удаление лабораторной работы
+deleteLab(labId) {
+    const labIndex = this.data.labs.findIndex(l => l.id == labId);
+    if (labIndex === -1) {
+        throw new Error('Лабораторная работа не найдена');
+    }
+    
+    this.data.labs.splice(labIndex, 1);
+    
+    // Также удаляем связанные сдачи работ
+    this.data.submissions = this.data.submissions.filter(s => s.lab_id != labId);
+    
+    this.save();
+    return true;
+}
+
+// Обновление лабораторной работы
+updateLab(labId, labData) {
+    const lab = this.data.labs.find(l => l.id == labId);
+    if (!lab) {
+        throw new Error('Лабораторная работа не найдена');
+    }
+    
+    // Обновляем поля
+    Object.assign(lab, labData);
+    lab.updated_at = new Date().toISOString();
+    
+    this.save();
+    return lab;
+}
+
+// Поиск студентов по имени, фамилии или группе
+searchStudents(query) {
+    if (!query) return [];
+    
+    const searchTerm = query.toLowerCase();
+    return this.data.users
+        .filter(u => u.role === 'student')
+        .filter(u => 
+            u.firstName.toLowerCase().includes(searchTerm) ||
+            u.lastName.toLowerCase().includes(searchTerm) ||
+            (u.group && u.group.toLowerCase().includes(searchTerm)) ||
+            (u.email && u.email.toLowerCase().includes(searchTerm))
+        );
+}
+
+// Принудительная запись студента на курс (для преподавателя)
+forceEnrollStudent(courseId, studentId) {
+    const course = this.findCourseById(courseId);
+    if (!course) {
+        throw new Error('Курс не найден');
+    }
+    
+    const student = this.findUserById(studentId);
+    if (!student || student.role !== 'student') {
+        throw new Error('Студент не найден');
+    }
+    
+    // Проверяем, не записан ли уже
+    const existing = this.data.enrollments.find(
+        e => e.course_id == courseId && e.student_id == studentId
+    );
+    
+    if (existing) {
+        throw new Error('Студент уже записан на этот курс');
+    }
+    
+    const enrollment = {
+        id: Date.now(),
+        course_id: parseInt(courseId),
+        student_id: parseInt(studentId),
+        enrolled_at: new Date().toISOString(),
+        enrolled_by: 'teacher' // Отметка, что записан преподавателем
+    };
+    
+    this.data.enrollments.push(enrollment);
+    this.save();
+    return enrollment;
+}
+
 }
 
 // Инициализация базы данных
@@ -852,6 +935,115 @@ app.get('/api/courses/:id', requireAuth, async (req, res) => {
         res.status(500).json({ error: 'Ошибка базы данных' });
     }
 });
+
+// Удаление лабораторной работы
+app.delete('/api/labs/:id', requireAuth, async (req, res) => {
+    try {
+        const labId = req.params.id;
+        const lab = db.data.labs.find(l => l.id == labId);
+        
+        if (!lab) {
+            return res.status(404).json({ error: 'Лабораторная работа не найдена' });
+        }
+
+        // Проверяем, что преподаватель имеет доступ к курсу
+        const course = db.findCourseById(lab.course_id);
+        if (!course || course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        await db.deleteLab(labId);
+        
+        res.json({ 
+            success: true, 
+            message: 'Лабораторная работа удалена'
+        });
+    } catch (error) {
+        console.error('Ошибка удаления лабораторной работы:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Обновление лабораторной работы
+app.put('/api/labs/:id', requireAuth, async (req, res) => {
+    try {
+        const labId = req.params.id;
+        const lab = db.data.labs.find(l => l.id == labId);
+        
+        if (!lab) {
+            return res.status(404).json({ error: 'Лабораторная работа не найдена' });
+        }
+
+        // Проверяем, что преподаватель имеет доступ к курсу
+        const course = db.findCourseById(lab.course_id);
+        if (!course || course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        const updatedLab = await db.updateLab(labId, req.body);
+        
+        res.json({ 
+            success: true, 
+            message: 'Лабораторная работа обновлена',
+            lab: updatedLab
+        });
+    } catch (error) {
+        console.error('Ошибка обновления лабораторной работы:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Поиск студентов
+app.get('/api/students/search', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
+
+    try {
+        const { query } = req.query;
+        const students = db.searchStudents(query);
+        
+        // Убираем пароли из ответа
+        const studentsWithoutPasswords = students.map(student => {
+            const { password, ...studentWithoutPassword } = student;
+            return studentWithoutPassword;
+        });
+
+        res.json({ students: studentsWithoutPasswords });
+    } catch (error) {
+        console.error('Ошибка поиска студентов:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Принудительная запись студента на курс
+app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const { studentId } = req.body;
+
+        const course = db.findCourseById(courseId);
+        if (!course) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+
+        // Проверяем, что преподаватель имеет доступ к курсу
+        if (course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        await db.forceEnrollStudent(courseId, studentId);
+        
+        res.json({ 
+            success: true, 
+            message: 'Студент успешно записан на курс'
+        });
+    } catch (error) {
+        console.error('Ошибка записи студента:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
 
 // Все остальные GET запросы
 app.get('*', (req, res) => {

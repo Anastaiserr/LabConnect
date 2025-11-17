@@ -2,6 +2,7 @@
 // Функциональность личного кабинета преподавателя
 
 let currentCourseId = null;
+let currentLabId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ teacher-dashboard.js загружен');
@@ -83,7 +84,7 @@ function initTeacherModals() {
         });
     }
     
-    // 3. Кнопка создания лабораторной работы в модальном окне управления курсом
+    // 3. Кнопка создания лабораторной работы
     const createLabBtn = document.getElementById('create-lab-btn');
     if (createLabBtn) {
         createLabBtn.addEventListener('click', function() {
@@ -102,7 +103,34 @@ function initTeacherModals() {
         });
     }
     
-    // 5. Инициализация вкладок в модальном окне управления курсом
+    // 5. Форма редактирования лабораторной работы
+    const labEditForm = document.getElementById('lab-edit-form');
+    if (labEditForm) {
+        labEditForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('📝 Форма редактирования лабораторной работы отправлена');
+            updateLab();
+        });
+    }
+    
+    // 6. Поиск студентов
+    const searchStudentBtn = document.getElementById('search-student-btn');
+    if (searchStudentBtn) {
+        searchStudentBtn.addEventListener('click', function() {
+            searchStudents();
+        });
+    }
+    
+    const studentSearchInput = document.getElementById('student-search');
+    if (studentSearchInput) {
+        studentSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchStudents();
+            }
+        });
+    }
+    
+    // 7. Инициализация вкладок в модальном окне управления курсом
     initCourseManagementTabs();
     
     // Закрытие модальных окон
@@ -111,6 +139,10 @@ function initTeacherModals() {
             const modal = this.closest('.modal');
             if (modal) {
                 modal.style.display = 'none';
+                // Очищаем результаты поиска при закрытии
+                if (modal.id === 'manage-course-modal') {
+                    clearStudentSearch();
+                }
             }
         });
     });
@@ -119,6 +151,8 @@ function initTeacherModals() {
     window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
+            // Очищаем результаты поиска при закрытии
+            clearStudentSearch();
         }
     });
     
@@ -148,8 +182,6 @@ function initCourseManagementTabs() {
                 loadCourseLabs(currentCourseId);
             } else if (tabId === 'students' && currentCourseId) {
                 loadCourseStudents(currentCourseId);
-            } else if (tabId === 'invite' && currentCourseId) {
-                loadInviteLink(currentCourseId);
             }
         });
     });
@@ -392,9 +424,6 @@ async function openCourseManagement(courseId) {
             // Загружаем студентов курса
             await loadCourseStudents(courseId);
             
-            // Загружаем инвайт-ссылку
-            await loadInviteLink(courseId);
-            
         } else if (response.status === 403) {
             showAlert('Доступ к этому курсу запрещен', 'error');
         } else if (response.status === 404) {
@@ -491,84 +520,185 @@ function displayCourseLabs(labs) {
             </div>
         </div>
     `).join('');
+    
+    // Добавляем обработчики для кнопок лабораторных работ
+    addLabEventHandlers();
 }
 
-// Функция для загрузки инвайт-ссылки
-async function loadInviteLink(courseId) {
+// Обработчики событий для лабораторных работ
+function addLabEventHandlers() {
+    // Кнопка "Редактировать"
+    document.querySelectorAll('.edit-lab').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const labId = this.getAttribute('data-lab-id');
+            openEditLabModal(labId);
+        });
+    });
+    
+    // Кнопка "Удалить"
+    document.querySelectorAll('.delete-lab').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const labId = this.getAttribute('data-lab-id');
+            deleteLab(labId);
+        });
+    });
+    
+    // Кнопка "Работы студентов"
+    document.querySelectorAll('.view-submissions').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const labId = this.getAttribute('data-lab-id');
+            showAlert('Функция просмотра работ студентов в разработке', 'info');
+        });
+    });
+}
+
+// Открытие модального окна редактирования лабораторной работы
+async function openEditLabModal(labId) {
+    currentLabId = labId;
+    
     try {
-        const response = await fetch(`/api/courses/${courseId}/invite`, {
-            credentials: 'include'
+        // Находим лабораторную работу в текущем списке
+        const labElement = document.querySelector(`[data-lab-id="${labId}"]`);
+        if (!labElement) {
+            throw new Error('Лабораторная работа не найдена');
+        }
+        
+        // Заполняем форму данными
+        const labTitle = labElement.querySelector('.lab-title').textContent;
+        const labDescription = labElement.querySelector('.lab-description p').textContent;
+        const labMeta = labElement.querySelectorAll('.lab-meta span');
+        
+        let startDate = '';
+        let deadline = '';
+        let maxScore = '10';
+        
+        labMeta.forEach(meta => {
+            const text = meta.textContent;
+            if (text.includes('Начало:')) {
+                startDate = text.replace('Начало:', '').trim();
+            } else if (text.includes('Дедлайн:')) {
+                deadline = text.replace('Дедлайн:', '').trim();
+            } else if (text.includes('Макс. балл:')) {
+                maxScore = text.replace('Макс. балл:', '').trim();
+            }
         });
         
-        if (response.ok) {
-            const result = await response.json();
-            const inviteSection = document.getElementById('invite-section');
-            
-            if (result.inviteUrl) {
-                inviteSection.innerHTML = `
-                    <h4>Приглашение студентов</h4>
-                    <div class="invite-link">
-                        <input type="text" id="invite-url" class="form-control" value="${result.inviteUrl}" readonly>
-                        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()">Копировать</button>
-                    </div>
-                    <small class="form-text">Отправьте эту ссылку студентам для записи на курс</small>
-                    <button class="btn btn-warning btn-sm" onclick="generateNewInvite(${courseId})">Обновить ссылку</button>
-                `;
-            } else {
-                inviteSection.innerHTML = `
-                    <h4>Приглашение студентов</h4>
-                    <button class="btn btn-primary" onclick="generateNewInvite(${courseId})">Создать ссылку-приглашение</button>
-                `;
-            }
-        } else if (response.status === 403) {
-            const inviteSection = document.getElementById('invite-section');
-            inviteSection.innerHTML = `
-                <div class="error-message">
-                    <p>Доступ к созданию приглашений запрещен</p>
-                </div>
-            `;
+        // Заполняем форму
+        document.getElementById('edit-lab-id').value = labId;
+        document.getElementById('edit-lab-name').value = labTitle;
+        document.getElementById('edit-lab-description').value = labDescription;
+        document.getElementById('edit-lab-max-score').value = maxScore;
+        
+        // Преобразуем даты в формат для input[type="datetime-local"]
+        if (startDate && startDate !== 'Не указано') {
+            const startDateObj = new Date(startDate);
+            document.getElementById('edit-lab-start-date').value = formatDateTimeLocal(startDateObj);
         }
+        
+        if (deadline && deadline !== 'Не указано') {
+            const deadlineObj = new Date(deadline);
+            document.getElementById('edit-lab-deadline').value = formatDateTimeLocal(deadlineObj);
+        }
+        
+        // Показываем модальное окно
+        document.getElementById('edit-lab-modal').style.display = 'block';
+        
     } catch (error) {
-        console.error('Ошибка загрузки инвайт-ссылки:', error);
-        const inviteSection = document.getElementById('invite-section');
-        inviteSection.innerHTML = `
-            <div class="error-message">
-                <p>Ошибка загрузки: ${error.message}</p>
-            </div>
-        `;
+        console.error('❌ Ошибка открытия редактирования:', error);
+        showAlert('Ошибка загрузки данных лабораторной работы', 'error');
     }
 }
 
-// Функция для генерации новой инвайт-ссылки
-async function generateNewInvite(courseId) {
+// Удаление лабораторной работы
+async function deleteLab(labId) {
+    if (!confirm('Вы уверены, что хотите удалить эту лабораторную работу? Все связанные сдачи работ также будут удалены.')) {
+        return;
+    }
+    
     try {
-        const response = await fetch(`/api/courses/${courseId}/generate-invite`, {
-            method: 'POST',
+        const response = await fetch(`/api/labs/${labId}`, {
+            method: 'DELETE',
             credentials: 'include'
         });
         
         if (response.ok) {
             const result = await response.json();
             showAlert(result.message, 'success');
-            loadInviteLink(courseId);
+            
+            // Перезагружаем список лабораторных работ
+            await loadCourseLabs(currentCourseId);
+            await loadCourseLabsCount(currentCourseId);
+            
         } else {
-            throw new Error('Ошибка генерации ссылки');
+            const errorData = await response.json();
+            throw new Error(errorData.error);
         }
     } catch (error) {
-        console.error('Ошибка генерации инвайта:', error);
-        showAlert('Ошибка создания ссылки', 'error');
+        console.error('❌ Ошибка удаления лабораторной работы:', error);
+        showAlert('Ошибка удаления: ' + error.message, 'error');
     }
 }
 
-// Функция для копирования инвайт-ссылки
-function copyInviteLink() {
-    const inviteInput = document.getElementById('invite-url');
-    inviteInput.select();
-    document.execCommand('copy');
-    showAlert('Ссылка скопирована в буфер обмена', 'success');
+// Обновление лабораторной работы
+async function updateLab() {
+    const form = document.getElementById('lab-edit-form');
+    const labId = document.getElementById('edit-lab-id').value;
+    
+    const formData = new FormData(form);
+    const labData = {
+        title: formData.get('edit-lab-name'),
+        description: formData.get('edit-lab-description'),
+        template_code: formData.get('edit-lab-template') || null,
+        start_date: formData.get('edit-lab-start-date'),
+        deadline: formData.get('edit-lab-deadline'),
+        max_score: parseInt(formData.get('edit-lab-max-score')),
+        requirements: formData.get('edit-lab-requirements') || null
+    };
+    
+    // Валидация
+    if (!labData.title || !labData.description) {
+        showAlert('Название и описание обязательны для заполнения', 'error');
+        return;
+    }
+    
+    // Проверка дат
+    const startDate = new Date(labData.start_date);
+    const deadline = new Date(labData.deadline);
+    
+    if (deadline <= startDate) {
+        showAlert('Дедлайн должен быть позже даты начала', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/labs/${labId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(labData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка обновления лабораторной работы');
+        }
+
+        const result = await response.json();
+        showAlert(result.message, 'success');
+        document.getElementById('edit-lab-modal').style.display = 'none';
+        
+        // Перезагружаем список лабораторных работ
+        await loadCourseLabs(currentCourseId);
+        
+    } catch (error) {
+        console.error('❌ Ошибка обновления лабораторной работы:', error);
+        showAlert('Ошибка обновления: ' + error.message, 'error');
+    }
 }
 
-/// Обновите вкладку "Студенты" в модальном окне
+// Обновите вкладку "Студенты" в модальном окне
 async function loadCourseStudents(courseId) {
     try {
         const studentsTab = document.getElementById('students-tab');
@@ -602,37 +732,161 @@ async function loadCourseStudents(courseId) {
 
 // Функция для отображения студентов
 function displayCourseStudents(students) {
-    const container = document.getElementById('students-tab');
+    const container = document.getElementById('course-students-list');
+    const countElement = document.getElementById('students-count');
+    
+    if (!container) return;
     
     if (!students || students.length === 0) {
         container.innerHTML = `
             <div class="no-students">
                 <p>На курс еще не записан ни один студент</p>
-                <p>Используйте ссылку-приглашение выше для приглашения студентов</p>
+                <p>Используйте поиск выше для добавления студентов</p>
             </div>
         `;
+        if (countElement) countElement.textContent = '0';
         return;
     }
     
-    container.innerHTML = `
-        <div class="students-header">
-            <h4>Студенты курса (${students.length})</h4>
-        </div>
-        <div class="students-list">
-            ${students.map(student => `
-                <div class="student-card">
-                    <div class="student-info">
-                        <strong>${student.firstName} ${student.lastName}</strong>
-                        <div class="student-details">
-                            <span>Группа: ${student.group || 'Не указана'}</span>
-                            <span>Email: ${student.email}</span>
-                            <span>Записан: ${formatDate(student.createdAt)}</span>
-                        </div>
-                    </div>
+    container.innerHTML = students.map(student => `
+        <div class="student-card" data-student-id="${student.id}">
+            <div class="student-info">
+                <strong>${student.firstName} ${student.lastName}</strong>
+                <div class="student-details">
+                    <span>Группа: ${student.group || 'Не указана'}</span>
+                    <span>Email: ${student.email}</span>
+                    <span>Записан: ${formatDate(student.createdAt)}</span>
                 </div>
-            `).join('')}
+            </div>
+            <div class="student-actions">
+                <button class="btn btn-danger btn-sm remove-student" data-student-id="${student.id}">
+                    Удалить
+                </button>
+            </div>
         </div>
-    `;
+    `).join('');
+    
+    if (countElement) countElement.textContent = students.length;
+    
+    // Добавляем обработчики для кнопок удаления студентов
+    addStudentEventHandlers();
+}
+
+// Обработчики событий для студентов
+function addStudentEventHandlers() {
+    // Кнопка "Удалить" студента
+    document.querySelectorAll('.remove-student').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            showAlert('Функция удаления студентов в разработке', 'info');
+        });
+    });
+}
+
+// Поиск студентов
+async function searchStudents() {
+    const query = document.getElementById('student-search').value.trim();
+    const resultsContainer = document.getElementById('student-search-results-list');
+    const resultsSection = document.getElementById('student-search-results');
+    
+    if (!query) {
+        showAlert('Введите поисковый запрос', 'warning');
+        return;
+    }
+    
+    try {
+        resultsContainer.innerHTML = '<div class="loading">Поиск студентов...</div>';
+        resultsSection.style.display = 'block';
+        
+        const response = await fetch(`/api/students/search?query=${encodeURIComponent(query)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displayStudentSearchResults(result.students || []);
+        } else {
+            throw new Error('Ошибка поиска');
+        }
+    } catch (error) {
+        console.error('Ошибка поиска студентов:', error);
+        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска студентов</div>';
+    }
+}
+
+// Отображение результатов поиска студентов
+function displayStudentSearchResults(students) {
+    const container = document.getElementById('student-search-results-list');
+    
+    if (!students || students.length === 0) {
+        container.innerHTML = '<div class="no-results">Студенты не найдены</div>';
+        return;
+    }
+    
+    container.innerHTML = students.map(student => `
+        <div class="search-student-card">
+            <div class="student-info">
+                <strong>${student.firstName} ${student.lastName}</strong>
+                <div class="student-details">
+                    <span>Группа: ${student.group || 'Не указана'}</span>
+                    <span>Email: ${student.email}</span>
+                </div>
+            </div>
+            <div class="student-actions">
+                <button class="btn btn-primary btn-sm add-student" data-student-id="${student.id}">
+                    Добавить в курс
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Добавляем обработчики для кнопок добавления студентов
+    document.querySelectorAll('.add-student').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            addStudentToCourse(studentId);
+        });
+    });
+}
+
+// Добавление студента в курс
+async function addStudentToCourse(studentId) {
+    try {
+        const response = await fetch(`/api/courses/${currentCourseId}/enroll-student`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ studentId })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Перезагружаем список студентов
+            await loadCourseStudents(currentCourseId);
+            await loadCourseStudentsCount(currentCourseId);
+            
+            // Очищаем поиск
+            clearStudentSearch();
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('Ошибка добавления студента:', error);
+        showAlert('Ошибка добавления: ' + error.message, 'error');
+    }
+}
+
+// Очистка результатов поиска
+function clearStudentSearch() {
+    document.getElementById('student-search').value = '';
+    document.getElementById('student-search-results').style.display = 'none';
+    document.getElementById('student-search-results-list').innerHTML = '';
 }
 
 // Функция для открытия модального окна создания лабораторной работы
@@ -811,6 +1065,8 @@ function formatDateTimeLocal(date) {
 }
 
 function getLabStatus(lab) {
+    if (!lab.start_date || !lab.deadline) return 'active';
+    
     const now = new Date();
     const startDate = new Date(lab.start_date);
     const deadline = new Date(lab.deadline);
@@ -894,7 +1150,7 @@ function loadTeacherChats() {
     console.log('💬 Загрузка чатов...');
     const groupsList = document.querySelector('.groups-list');
     groupsList.innerHTML = `
-        <div class="no-chats">
+        <div class="no-chats'>
             <p>Чаты появятся здесь, когда студенты запишутся на ваши курсы</p>
         </div>
     `;
