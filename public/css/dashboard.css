@@ -1224,3 +1224,48 @@ select.form-control {
 .current-students-section h4 {
     margin-bottom: 1rem;
 }
+
+/* Стили для поиска студентов */
+.search-student-card.enrolled {
+    background: #e8f5e8;
+    border-left-color: #27ae60;
+}
+
+.enrolled-badge {
+    background: #27ae60;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.search-student-card .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Улучшение отображения студентов */
+.student-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid #3498db;
+}
+
+.student-info {
+    flex: 1;
+}
+
+.student-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.5rem;
+}

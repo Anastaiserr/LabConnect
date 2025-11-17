@@ -326,19 +326,24 @@ updateLab(labId, labData) {
     return lab;
 }
 
-// Поиск студентов по имени, фамилии или группе
+// Поиск студентов по имени и фамилии
 searchStudents(query) {
     if (!query) return [];
     
-    const searchTerm = query.toLowerCase();
+    const searchTerm = query.toLowerCase().trim();
+    if (searchTerm.length < 2) return []; // Минимум 2 символа для поиска
+    
     return this.data.users
         .filter(u => u.role === 'student')
-        .filter(u => 
-            u.firstName.toLowerCase().includes(searchTerm) ||
-            u.lastName.toLowerCase().includes(searchTerm) ||
-            (u.group && u.group.toLowerCase().includes(searchTerm)) ||
-            (u.email && u.email.toLowerCase().includes(searchTerm))
-        );
+        .filter(u => {
+            const fullName = `${u.firstName} ${u.lastName}`.toLowerCase();
+            const fullNameReverse = `${u.lastName} ${u.firstName}`.toLowerCase();
+            
+            return fullName.includes(searchTerm) || 
+                   fullNameReverse.includes(searchTerm) ||
+                   u.firstName.toLowerCase().includes(searchTerm) ||
+                   u.lastName.toLowerCase().includes(searchTerm);
+        });
 }
 
 // Принудительная запись студента на курс (для преподавателя)
@@ -1016,31 +1021,66 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
     }
 });
 
-// Принудительная запись студента на курс
+// Принудительная запись студента на курс (для преподавателя)
 app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
     try {
         const courseId = req.params.id;
         const { studentId } = req.body;
 
+        console.log('🔄 Запись студента на курс:', { courseId, studentId });
+
         const course = db.findCourseById(courseId);
         if (!course) {
+            console.log('❌ Курс не найден:', courseId);
             return res.status(404).json({ error: 'Курс не найден' });
         }
 
         // Проверяем, что преподаватель имеет доступ к курсу
         if (course.teacher_id != req.session.user.id) {
+            console.log('❌ Доступ запрещен для преподавателя:', req.session.user.id);
             return res.status(403).json({ error: 'Доступ запрещен' });
         }
 
-        await db.forceEnrollStudent(courseId, studentId);
+        const student = db.findUserById(studentId);
+        if (!student || student.role !== 'student') {
+            console.log('❌ Студент не найден:', studentId);
+            return res.status(404).json({ error: 'Студент не найден' });
+        }
+
+        // Проверяем, не записан ли уже
+        const existing = db.data.enrollments.find(
+            e => e.course_id == courseId && e.student_id == studentId
+        );
+        
+        if (existing) {
+            console.log('❌ Студент уже записан:', studentId);
+            return res.status(400).json({ error: 'Студент уже записан на этот курс' });
+        }
+
+        const enrollment = {
+            id: Date.now(),
+            course_id: parseInt(courseId),
+            student_id: parseInt(studentId),
+            enrolled_at: new Date().toISOString(),
+            enrolled_by: 'teacher'
+        };
+        
+        if (!db.data.enrollments) {
+            db.data.enrollments = [];
+        }
+        
+        db.data.enrollments.push(enrollment);
+        db.save();
+        
+        console.log('✅ Студент записан на курс:', enrollment);
         
         res.json({ 
             success: true, 
             message: 'Студент успешно записан на курс'
         });
     } catch (error) {
-        console.error('Ошибка записи студента:', error);
-        res.status(400).json({ error: error.message });
+        console.error('❌ Ошибка записи студента:', error);
+        res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
     }
 });
 

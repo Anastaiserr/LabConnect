@@ -779,7 +779,12 @@ async function searchStudents() {
     const resultsSection = document.getElementById('student-search-results');
     
     if (!query) {
-        showAlert('Введите поисковый запрос', 'warning');
+        showAlert('Введите имя или фамилию студента для поиска', 'warning');
+        return;
+    }
+    
+    if (query.length < 2) {
+        showAlert('Введите минимум 2 символа для поиска', 'warning');
         return;
     }
     
@@ -799,11 +804,12 @@ async function searchStudents() {
                 resultsContainer.innerHTML = '<div class="no-results">Студенты не найдены</div>';
             }
         } else {
-            throw new Error('Ошибка поиска');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка поиска');
         }
     } catch (error) {
         console.error('Ошибка поиска студентов:', error);
-        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска студентов</div>';
+        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска студентов: ' + error.message + '</div>';
     }
 }
 
@@ -811,22 +817,30 @@ async function searchStudents() {
 function displayStudentSearchResults(students) {
     const container = document.getElementById('student-search-results-list');
     
-    container.innerHTML = students.map(student => `
-        <div class="search-student-card">
+    container.innerHTML = students.map(student => {
+        // Проверяем, записан ли студент уже на курс
+        const isEnrolled = isStudentEnrolled(student.id);
+        
+        return `
+        <div class="search-student-card ${isEnrolled ? 'enrolled' : ''}">
             <div class="student-info">
                 <strong>${student.firstName} ${student.lastName}</strong>
                 <div class="student-details">
                     <span>Группа: ${student.group || 'Не указана'}</span>
                     <span>Email: ${student.email}</span>
+                    ${isEnrolled ? '<span class="enrolled-badge">Уже в курсе</span>' : ''}
                 </div>
             </div>
             <div class="student-actions">
-                <button class="btn btn-primary btn-sm add-student" data-student-id="${student.id}">
-                    Добавить в курс
-                </button>
+                ${isEnrolled ? 
+                    '<button class="btn btn-secondary btn-sm" disabled>Уже в курсе</button>' :
+                    `<button class="btn btn-primary btn-sm add-student" data-student-id="${student.id}">
+                        Добавить в курс
+                    </button>`
+                }
             </div>
         </div>
-    `).join('');
+    `}).join('');
     
     // Добавляем обработчики для кнопок добавления студентов
     document.querySelectorAll('.add-student').forEach(btn => {
@@ -837,17 +851,33 @@ function displayStudentSearchResults(students) {
     });
 }
 
+// Проверка, записан ли студент уже на курс
+function isStudentEnrolled(studentId) {
+    // Эта функция будет работать после загрузки студентов курса
+    const currentStudents = document.querySelectorAll('.student-card');
+    for (let studentCard of currentStudents) {
+        if (studentCard.getAttribute('data-student-id') == studentId) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Добавление студента в курс
 async function addStudentToCourse(studentId) {
     try {
+        console.log('🔄 Добавление студента', studentId, 'в курс', currentCourseId);
+        
         const response = await fetch(`/api/courses/${currentCourseId}/enroll-student`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ studentId })
+            body: JSON.stringify({ studentId: parseInt(studentId) })
         });
+        
+        console.log('📊 Статус ответа:', response.status);
         
         if (response.ok) {
             const result = await response.json();
@@ -857,19 +887,64 @@ async function addStudentToCourse(studentId) {
             await loadCourseStudents(currentCourseId);
             await loadCourseStudentsCount(currentCourseId);
             
-            // Очищаем поиск
-            clearStudentSearch();
+            // Обновляем результаты поиска (убираем добавленного студента)
+            const currentQuery = document.getElementById('student-search').value.trim();
+            if (currentQuery) {
+                await searchStudents(); // Перезапускаем поиск
+            }
             
         } else {
             const errorData = await response.json();
-            throw new Error(errorData.error);
+            console.error('❌ Ошибка ответа:', errorData);
+            throw new Error(errorData.error || 'Неизвестная ошибка');
         }
     } catch (error) {
-        console.error('Ошибка добавления студента:', error);
+        console.error('❌ Ошибка добавления студента:', error);
         showAlert('Ошибка добавления: ' + error.message, 'error');
     }
 }
 
+// Функция для отображения студентов курса
+function displayCourseStudents(students) {
+    const container = document.getElementById('course-students-list');
+    const countElement = document.getElementById('students-count');
+    
+    if (!container) return;
+    
+    if (!students || students.length === 0) {
+        container.innerHTML = `
+            <div class="no-students">
+                <p>На курс еще не записан ни один студент</p>
+                <p>Используйте поиск выше для добавления студентов</p>
+            </div>
+        `;
+        if (countElement) countElement.textContent = '0';
+        return;
+    }
+    
+    container.innerHTML = students.map(student => `
+        <div class="student-card" data-student-id="${student.id}">
+            <div class="student-info">
+                <strong>${student.firstName} ${student.lastName}</strong>
+                <div class="student-details">
+                    <span>Группа: ${student.group || 'Не указана'}</span>
+                    <span>Email: ${student.email}</span>
+                    <span>Записан: ${formatDate(student.createdAt || student.enrolled_at)}</span>
+                </div>
+            </div>
+            <div class="student-actions">
+                <button class="btn btn-danger btn-sm remove-student" data-student-id="${student.id}">
+                    Удалить
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    if (countElement) countElement.textContent = students.length;
+    
+    // Добавляем обработчики для кнопок удаления студентов
+    addStudentEventHandlers();
+}
 // Очистка результатов поиска
 function clearStudentSearch() {
     document.getElementById('student-search').value = '';
