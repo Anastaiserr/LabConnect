@@ -1276,7 +1276,7 @@ app.get('/api/student/submissions', requireAuth, async (req, res) => {
         
         res.json({ submissions: submissionsWithDetails });
     } catch (error) {
-        console.error('Ошибка получения работ:', error);
+        console.error('Ошибка получения работ студента:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });

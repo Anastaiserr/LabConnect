@@ -108,7 +108,10 @@ function initEventHandlers() {
     const searchInput = document.getElementById('course-search');
     
     if (searchBtn) {
-        searchBtn.addEventListener('click', searchCourses);
+        searchBtn.addEventListener('click', function(e) {
+            e.preventDefault(); // Предотвращаем переход по ссылке
+            searchCourses();
+        });
         console.log('✅ Обработчик поиска добавлен');
     } else {
         console.error('❌ Кнопка поиска не найдена');
@@ -117,6 +120,7 @@ function initEventHandlers() {
     if (searchInput) {
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 searchCourses();
             }
         });
@@ -220,7 +224,8 @@ function displaySearchResults(courses) {
 
 function addSearchResultsEventHandlers() {
     document.querySelectorAll('.enroll-course').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
             const courseId = this.getAttribute('data-course-id');
             openEnrollModal(courseId);
         });
@@ -229,7 +234,8 @@ function addSearchResultsEventHandlers() {
 
 function addMyCoursesEventHandlers() {
     document.querySelectorAll('.open-course').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
             const courseId = this.getAttribute('data-course-id');
             // Здесь можно добавить переход к странице курса
             showAlert('Переход к курсу...', 'info');

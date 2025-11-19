@@ -1,6 +1,8 @@
 // js/student-dashboard.js
 // Функциональность личного кабинета студента
 
+let currentFilter = 'active';
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ student-dashboard.js загружен');
     initStudentDashboard();
@@ -15,11 +17,14 @@ async function initStudentDashboard() {
     // Загрузка данных студента
     await loadStudentData();
     
-    // Загрузка активных лабораторных работ
-    await loadActiveLabs();
+    // Загрузка лабораторных работ
+    await loadStudentLabs();
     
     // Загрузка курсов студента
     await loadStudentCourses();
+    
+    // Инициализация календаря
+    initCalendar();
     
     // Инициализация модальных окон
     initModals();
@@ -59,8 +64,11 @@ function loadTabData(tabId) {
         case 'my-courses':
             loadStudentCourses();
             break;
-        case 'my-tasks':
-            loadActiveLabs();
+        case 'labs':
+            loadStudentLabs();
+            break;
+        case 'calendar':
+            initCalendar();
             break;
         case 'profile':
             // Уже загружено при инициализации
@@ -169,6 +177,271 @@ function displayStudentCourses(courses) {
     });
 }
 
+// Загрузка лабораторных работ студента
+async function loadStudentLabs() {
+    try {
+        const container = document.getElementById('labs-container');
+        if (!container) return;
+        
+        container.innerHTML = '<div class="loading">Загрузка лабораторных работ...</div>';
+        
+        // Загружаем сданные работы студента
+        const submissionsResponse = await fetch('/api/student/submissions', {
+            credentials: 'include'
+        });
+        
+        let submissions = [];
+        if (submissionsResponse.ok) {
+            const submissionsResult = await submissionsResponse.json();
+            submissions = submissionsResult.submissions || [];
+        }
+        
+        // Загружаем курсы студента
+        const coursesResponse = await fetch('/api/student/courses', {
+            credentials: 'include'
+        });
+        
+        if (coursesResponse.ok) {
+            const coursesResult = await coursesResponse.json();
+            const courses = coursesResult.courses || [];
+            
+            // Для каждого курса загружаем лабораторные работы
+            let allLabs = [];
+            
+            for (const course of courses) {
+                const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
+                    credentials: 'include'
+                });
+                
+                if (labsResponse.ok) {
+                    const labsResult = await labsResponse.json();
+                    const labs = labsResult.labs || [];
+                    
+                    // Объединяем лабораторные работы с информацией о сдаче
+                    const labsWithSubmission = labs.map(lab => {
+                        const submission = submissions.find(s => s.lab_id == lab.id);
+                        return {
+                            ...lab,
+                            course_name: course.name,
+                            course_id: course.id,
+                            submission: submission || null
+                        };
+                    });
+                    
+                    allLabs = allLabs.concat(labsWithSubmission);
+                }
+            }
+            
+            displayStudentLabs(allLabs);
+        } else {
+            throw new Error('Ошибка загрузки курсов');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки лабораторных работ:', error);
+        const container = document.getElementById('labs-container');
+        if (container) {
+            container.innerHTML = '<div class="error-message">Ошибка загрузки лабораторных работ</div>';
+        }
+    }
+}
+
+// Функция для отображения лабораторных работ с фильтрами
+function displayStudentLabs(labs) {
+    const container = document.getElementById('labs-container');
+    if (!container) return;
+    
+    // Фильтруем работы по выбранному статусу
+    let filteredLabs = labs;
+    
+    switch(currentFilter) {
+        case 'active':
+            filteredLabs = labs.filter(lab => {
+                const status = getLabStatus(lab);
+                return (status === 'active' || status === 'upcoming') && !lab.submission;
+            });
+            break;
+        case 'completed':
+            filteredLabs = labs.filter(lab => 
+                lab.submission && lab.submission.status === 'checked'
+            );
+            break;
+        case 'revision':
+            filteredLabs = labs.filter(lab => 
+                lab.submission && lab.submission.status === 'revision'
+            );
+            break;
+        case 'submitted':
+            filteredLabs = labs.filter(lab => 
+                lab.submission && lab.submission.status === 'pending'
+            );
+            break;
+    }
+    
+    if (filteredLabs.length === 0) {
+        let message = '';
+        switch(currentFilter) {
+            case 'active':
+                message = 'Нет активных лабораторных работ';
+                break;
+            case 'completed':
+                message = 'Нет проверенных работ';
+                break;
+            case 'revision':
+                message = 'Нет работ на доработку';
+                break;
+            case 'submitted':
+                message = 'Нет работ на проверке';
+                break;
+            default:
+                message = 'Нет лабораторных работ';
+        }
+        container.innerHTML = `<p class="no-data">${message}</p>`;
+        return;
+    }
+    
+    container.innerHTML = filteredLabs.map(lab => {
+        const labStatus = getLabStatus(lab);
+        const submission = lab.submission;
+        
+        let statusText = getLabStatusText(lab);
+        let statusClass = `status-${labStatus}`;
+        let buttonText = 'Приступить к выполнению';
+        let buttonClass = 'btn-primary';
+        let disabled = false;
+        
+        if (submission) {
+            statusText = getSubmissionStatusText(submission.status);
+            statusClass = `status-${submission.status}`;
+            
+            switch(submission.status) {
+                case 'pending':
+                    buttonText = 'Ожидает проверки';
+                    buttonClass = 'btn-secondary';
+                    disabled = true;
+                    break;
+                case 'checked':
+                    buttonText = 'Посмотреть результат';
+                    buttonClass = 'btn-success';
+                    break;
+                case 'revision':
+                    buttonText = 'Отправить на доработку';
+                    buttonClass = 'btn-warning';
+                    break;
+            }
+        }
+        
+        return `
+        <div class="task-card" data-task-id="${lab.id}">
+            <div class="task-header">
+                <h4 class="task-title">${lab.title}</h4>
+                <span class="task-status ${statusClass}">
+                    ${statusText}
+                </span>
+            </div>
+            <div class="task-meta">
+                <span>Курс: ${lab.course_name}</span>
+                <span>Дедлайн: ${formatDateTime(lab.deadline)}</span>
+                <span>Макс. балл: ${lab.max_score}</span>
+                ${submission && submission.score !== null ? `<span>Оценка: ${submission.score}/${lab.max_score}</span>` : ''}
+            </div>
+            ${submission && submission.teacher_comment ? `
+                <div class="task-comment">
+                    <strong>Комментарий преподавателя:</strong>
+                    <p>${submission.teacher_comment}</p>
+                </div>
+            ` : ''}
+            <div class="task-actions">
+                <button class="btn btn-sm ${buttonClass} start-lab-task" 
+                        data-lab-id="${lab.id}" 
+                        data-course-id="${lab.course_id}"
+                        ${disabled ? 'disabled' : ''}>
+                    ${buttonText}
+                </button>
+            </div>
+        </div>
+    `}).join('');
+    
+    // Добавляем обработчики для кнопок
+    document.querySelectorAll('.start-lab-task').forEach(btn => {
+        if (!btn.disabled) {
+            btn.addEventListener('click', function() {
+                const labId = this.getAttribute('data-lab-id');
+                const submission = labs.find(l => l.id == labId)?.submission;
+                
+                if (submission && submission.status === 'checked') {
+                    viewLabResult(labId, submission);
+                } else {
+                    openLabWorkModal(labId);
+                }
+            });
+        }
+    });
+}
+
+// Просмотр результата лабораторной работы
+function viewLabResult(labId, submission) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    modal.innerHTML = `
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Результат проверки</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="result-info">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Оценка:</label>
+                            <span class="score">${submission.score}/${submission.max_score || 10}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Статус:</label>
+                            <span class="status status-${submission.status}">${getSubmissionStatusText(submission.status)}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Дата проверки:</label>
+                            <span>${formatDateTime(submission.checked_at)}</span>
+                        </div>
+                    </div>
+                    
+                    ${submission.teacher_comment ? `
+                        <div class="comment-section">
+                            <h4>Комментарий преподавателя:</h4>
+                            <div class="comment-content">${submission.teacher_comment}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${submission.files ? `
+                        <div class="files-section">
+                            <h4>Ваши файлы:</h4>
+                            <div class="file-item">
+                                <span class="file-icon">📎</span>
+                                <span class="file-name">${submission.files}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary close-btn">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики событий
+    modal.querySelector('.close').addEventListener('click', () => modal.remove());
+    modal.querySelector('.close-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) modal.remove();
+    });
+}
+
 // Открытие деталей курса с лабораторными работами
 async function openCourseDetails(courseId) {
     try {
@@ -254,102 +527,6 @@ function showCourseLabsModal(courseId, labs) {
         if (e.target === this) {
             modal.remove();
         }
-    });
-}
-
-// Загрузка активных лабораторных работ
-async function loadActiveLabs() {
-    try {
-        const container = document.getElementById('tasks-container');
-        if (!container) return;
-        
-        container.innerHTML = '<div class="loading">Загрузка заданий...</div>';
-        
-        // Загружаем курсы студента
-        const coursesResponse = await fetch('/api/student/courses', {
-            credentials: 'include'
-        });
-        
-        if (coursesResponse.ok) {
-            const coursesResult = await coursesResponse.json();
-            const courses = coursesResult.courses || [];
-            
-            // Для каждого курса загружаем лабораторные работы
-            let allActiveLabs = [];
-            
-            for (const course of courses) {
-                const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
-                    credentials: 'include'
-                });
-                
-                if (labsResponse.ok) {
-                    const labsResult = await labsResponse.json();
-                    const labs = labsResult.labs || [];
-                    
-                    // Фильтруем активные лабораторные работы
-                    const activeLabs = labs.filter(lab => {
-                        const status = getLabStatus(lab);
-                        return status === 'active' || status === 'upcoming';
-                    }).map(lab => ({
-                        ...lab,
-                        course_name: course.name,
-                        course_id: course.id
-                    }));
-                    
-                    allActiveLabs = allActiveLabs.concat(activeLabs);
-                }
-            }
-            
-            displayActiveLabs(allActiveLabs);
-        } else {
-            throw new Error('Ошибка загрузки курсов');
-        }
-    } catch (error) {
-        console.error('❌ Ошибка загрузки активных лабораторных работ:', error);
-        const container = document.getElementById('tasks-container');
-        if (container) {
-            container.innerHTML = '<div class="error-message">Ошибка загрузки заданий</div>';
-        }
-    }
-}
-
-// Функция для отображения активных лабораторных работ
-function displayActiveLabs(labs) {
-    const container = document.getElementById('tasks-container');
-    if (!container) return;
-    
-    if (labs.length === 0) {
-        container.innerHTML = '<p class="no-data">Нет активных лабораторных работ</p>';
-        return;
-    }
-    
-    container.innerHTML = labs.map(lab => `
-        <div class="task-card" data-task-id="${lab.id}">
-            <div class="task-header">
-                <h4 class="task-title">${lab.title}</h4>
-                <span class="task-status status-${getLabStatus(lab)}">
-                    ${getLabStatusText(lab)}
-                </span>
-            </div>
-            <div class="task-meta">
-                <span>Курс: ${lab.course_name}</span>
-                <span>Дедлайн: ${formatDateTime(lab.deadline)}</span>
-                <span>Макс. балл: ${lab.max_score}</span>
-            </div>
-            <div class="task-actions">
-                <button class="btn btn-primary btn-sm start-lab-task" data-lab-id="${lab.id}" data-course-id="${lab.course_id}">
-                    Приступить к выполнению
-                </button>
-            </div>
-        </div>
-    `).join('');
-    
-    // Добавляем обработчики для кнопок
-    document.querySelectorAll('.start-lab-task').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const labId = this.getAttribute('data-lab-id');
-            openLabWorkModal(labId);
-        });
     });
 }
 
@@ -454,6 +631,9 @@ async function handleLabSubmission(e) {
             // Закрываем модальное окно
             document.querySelector('.modal').remove();
             
+            // Перезагружаем список лабораторных работ
+            await loadStudentLabs();
+            
         } else {
             const errorData = await response.json();
             throw new Error(errorData.error);
@@ -464,7 +644,118 @@ async function handleLabSubmission(e) {
     }
 }
 
-// Вспомогательные функции для статусов лабораторных работ
+// Инициализация календаря
+function initCalendar() {
+    const calendar = document.getElementById('calendar-widget');
+    const currentMonthElement = document.getElementById('current-month');
+    const prevBtn = document.getElementById('prev-month');
+    const nextBtn = document.getElementById('next-month');
+    
+    if (!calendar || !currentMonthElement) return;
+    
+    let currentDate = new Date();
+    
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        
+        // Обновление отображаемого месяца
+        currentMonthElement.textContent = currentDate.toLocaleDateString('ru-RU', { 
+            month: 'long', 
+            year: 'numeric' 
+        });
+        
+        // Генерация календаря
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDay = firstDay.getDay();
+        
+        let calendarHTML = '<div class="calendar-grid">';
+        
+        // Заголовки дней недели
+        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        days.forEach(day => {
+            calendarHTML += `<div class="calendar-day header">${day}</div>`;
+        });
+        
+        // Пустые ячейки перед первым днем месяца
+        for (let i = 0; i < (startingDay === 0 ? 6 : startingDay - 1); i++) {
+            calendarHTML += '<div class="calendar-day other-month"></div>';
+        }
+        
+        // Дни месяца
+        const today = new Date();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const isToday = date.toDateString() === today.toDateString();
+            const dayClass = isToday ? 'calendar-day today' : 'calendar-day';
+            
+            calendarHTML += `<div class="${dayClass}" data-date="${date.toISOString().split('T')[0]}">${day}`;
+            
+            // Здесь можно добавить события (дедлайны лабораторных работ)
+            // В реальном приложении это будет загружаться с сервера
+            if (day % 5 === 0) {
+                calendarHTML += `<div class="calendar-event">Сдача ЛР</div>`;
+            }
+            
+            calendarHTML += '</div>';
+        }
+        
+        calendarHTML += '</div>';
+        calendar.innerHTML = calendarHTML;
+        
+        // Загружаем дедлайны для текущего месяца
+        loadDeadlinesForMonth(year, month + 1);
+    }
+    
+    // Загрузка дедлайнов для месяца
+    async function loadDeadlinesForMonth(year, month) {
+        try {
+            const deadlinesList = document.getElementById('deadlines-list');
+            if (!deadlinesList) return;
+            
+            // В реальном приложении здесь будет запрос к API
+            // Сейчас используем mock данные
+            const mockDeadlines = [
+                { title: 'ЛР1: Основы HTML', course: 'Веб-технологии', date: `${year}-${month.toString().padStart(2, '0')}-15` },
+                { title: 'ЛР2: CSS стилизация', course: 'Веб-технологии', date: `${year}-${month.toString().padStart(2, '0')}-25` },
+                { title: 'ЛР1: Алгоритмы сортировки', course: 'Алгоритмы', date: `${year}-${month.toString().padStart(2, '0')}-10` }
+            ];
+            
+            deadlinesList.innerHTML = mockDeadlines.map(deadline => `
+                <div class="deadline-item">
+                    <div class="deadline-title">${deadline.title}</div>
+                    <div class="deadline-course">${deadline.course}</div>
+                    <div class="deadline-date">${formatDate(deadline.date)}</div>
+                </div>
+            `).join('');
+            
+        } catch (error) {
+            console.error('Ошибка загрузки дедлайнов:', error);
+        }
+    }
+    
+    // Обработчики для кнопок навигации
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        });
+    }
+    
+    // Первоначальная отрисовка
+    renderCalendar();
+}
+
+// Вспомогательные функции для статусов
 function getLabStatus(lab) {
     if (!lab.start_date || !lab.deadline) return 'active';
     
@@ -483,6 +774,15 @@ function getLabStatusText(lab) {
         'active': 'Активна',
         'upcoming': 'Скоро начнется', 
         'completed': 'Завершена'
+    };
+    return statusMap[status] || status;
+}
+
+function getSubmissionStatusText(status) {
+    const statusMap = {
+        'pending': 'Ожидает проверки',
+        'checked': 'Проверено',
+        'revision': 'На доработку'
     };
     return statusMap[status] || status;
 }
@@ -513,6 +813,15 @@ function initModals() {
     const editProfileBtn = document.getElementById('edit-profile');
     if (editProfileBtn) {
         editProfileBtn.addEventListener('click', openEditProfileModal);
+    }
+    
+    // Обработчик для фильтра лабораторных работ
+    const labsFilter = document.getElementById('labs-filter');
+    if (labsFilter) {
+        labsFilter.addEventListener('change', function() {
+            currentFilter = this.value;
+            loadStudentLabs();
+        });
     }
     
     // Закрытие модальных окон при клике на крестик

@@ -35,7 +35,8 @@
                 <ul>
                     <li><a href="#profile" class="nav-link active" data-tab="profile">Профиль</a></li>
                     <li><a href="#my-courses" class="nav-link" data-tab="my-courses">Мои курсы</a></li>
-                    <li><a href="#my-tasks" class="nav-link" data-tab="my-tasks">Активные задания</a></li>
+                    <li><a href="#labs" class="nav-link" data-tab="labs">Лабораторные работы</a></li>
+                    <li><a href="#calendar" class="nav-link" data-tab="calendar">Календарь</a></li>
                 </ul>
             </nav>
 
@@ -112,18 +113,50 @@
                     </div>
                 </div>
 
-                <!-- Вкладка Активные задания -->
-                <div id="my-tasks" class="tab-content">
+                <!-- Вкладка Лабораторные работы -->
+                <div id="labs" class="tab-content">
                     <div class="tab-header">
-                        <h3>Активные лабораторные работы</h3>
+                        <h3>Лабораторные работы</h3>
+                        <div class="filter-options">
+                            <select id="labs-filter">
+                                <option value="active">Активные</option>
+                                <option value="submitted">На проверке</option>
+                                <option value="completed">Проверенные</option>
+                                <option value="revision">На доработку</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="tasks-list" id="tasks-container">
-                        <div class="loading">Загрузка заданий...</div>
+                    <div class="tasks-list" id="labs-container">
+                        <div class="loading">Загрузка лабораторных работ...</div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Календарь -->
+                <div id="calendar" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Календарь заданий</h3>
+                        <div class="calendar-controls">
+                            <button id="prev-month" class="btn btn-secondary">&lt;</button>
+                            <span id="current-month">Май 2025</span>
+                            <button id="next-month" class="btn btn-secondary">&gt;</button>
+                        </div>
+                    </div>
+                    <div class="calendar-container">
+                        <div class="calendar" id="calendar-widget">
+                            <!-- Календарь будет сгенерирован через JavaScript -->
+                        </div>
+                        <div class="upcoming-deadlines">
+                            <h4>Ближайшие дедлайны</h4>
+                            <div class="deadlines-list" id="deadlines-list">
+                                <!-- Дедлайны будут загружены через JavaScript -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
 
     <!-- Модальное окно редактирования профиля -->
     <div id="edit-profile-modal" class="modal">
