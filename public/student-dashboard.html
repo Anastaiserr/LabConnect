@@ -34,13 +34,10 @@
             <nav class="dashboard-nav">
                 <ul>
                     <li><a href="#profile" class="nav-link active" data-tab="profile">Профиль</a></li>
+                    <li><a href="#my-courses" class="nav-link" data-tab="my-courses">Мои курсы</a></li>
                     <li><a href="#my-tasks" class="nav-link" data-tab="my-tasks">Мои задания</a></li>
                     <li><a href="#available-tasks" class="nav-link" data-tab="available-tasks">Доступные задания</a></li>
-                    <li><a href="#submitted-works" class="nav-link" data-tab="submitted-works">Сданные работы</a></li>
                     <li><a href="#calendar" class="nav-link" data-tab="calendar">Календарь</a></li>
-                    <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
-                    <li><a href="#settings" class="nav-link" data-tab="settings">Настройки</a></li>
-                    <li><a href="#courses" class="nav-link" data-tab="courses">Мои курсы</a></li>
                 </ul>
             </nav>
 
@@ -123,6 +120,17 @@
                     <div class="settings-redirect">
                         <p>Для управления настройками профиля перейдите на специальную страницу:</p>
                         <a href="settings.html" class="btn btn-primary">Перейти к настройкам</a>
+                    </div>
+                </div>
+
+                <!-- И добавьте вкладку для курсов: -->
+                <div id="my-courses" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Мои курсы</h3>
+                        <a href="student-courses.html" class="btn btn-primary">Найти новые курсы</a>
+                    </div>
+                    <div class="courses-list" id="student-courses-list">
+                        <div class="loading">Загрузка курсов...</div>
                     </div>
                 </div>
 

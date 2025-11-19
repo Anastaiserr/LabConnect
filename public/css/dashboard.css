@@ -1418,3 +1418,116 @@ select.form-control {
     border-top: 1px solid #e9ecef;
     padding-top: 1.5rem;
 }
+
+/* Добавьте в конец dashboard.css */
+
+/* Стили для лабораторных работ студента */
+.lab-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #3498db;
+    transition: all 0.3s;
+}
+
+.lab-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.lab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.lab-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0;
+    flex: 1;
+}
+
+.lab-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-upcoming {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.lab-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.lab-description {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.lab-description p {
+    margin: 0;
+    color: #555;
+}
+
+.lab-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.no-labs {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin: 2rem 0;
+}
+
+/* Стили для формы сдачи работы */
+#lab-submit-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+#lab-submit-form label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+    color: var(--dark-color);
+}
+
+#lab-code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.form-text {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}

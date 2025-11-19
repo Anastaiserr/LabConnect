@@ -411,6 +411,15 @@ function loadTabData(tabId) {
         case 'courses':
             loadStudentCourses();
             break;
+        case 'my-courses':
+            loadStudentCourses();
+            break;
+        case 'available-tasks':
+            loadAvailableTasks();
+            break;
+        case 'my-tasks':
+            loadStudentTasks();
+            break;
     }
 }
 // Добавьте новые функции
@@ -436,6 +445,68 @@ async function loadStudentCourses() {
     }
 }
 
+async function searchCourses() {
+    const query = document.getElementById('course-search').value.trim();
+    
+    if (!query) {
+        showAlert('Введите поисковый запрос', 'warning');
+        return;
+    }
+    
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '<div class="loading">Поиск курсов...</div>';
+    
+    try {
+        const response = await fetch(`/api/courses/search?query=${encodeURIComponent(query)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displaySearchResults(result.courses || []);
+        } else {
+            throw new Error('Ошибка поиска');
+        }
+    } catch (error) {
+        console.error('Ошибка поиска курсов:', error);
+        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска курсов</div>';
+    }
+}
+
+// Обновите функцию displaySearchResults
+function displaySearchResults(courses) {
+    const container = document.getElementById('search-results');
+    
+    if (courses.length === 0) {
+        container.innerHTML = '<div class="no-data">Курсы не найдены</div>';
+        return;
+    }
+    
+    container.innerHTML = courses.map(course => `
+        <div class="course-card search-result" data-course-id="${course.id}">
+            <div class="course-header">
+                <h4 class="course-title">${course.name}</h4>
+                <span class="course-protection">
+                    ${course.password ? '🔒 Защищен паролем' : '🔓 Открытый доступ'}
+                </span>
+            </div>
+            <div class="course-meta">
+                <span><strong>Дисциплина:</strong> ${course.discipline}</span>
+                <span><strong>Преподаватель:</strong> ${course.teacher_first_name} ${course.teacher_last_name}</span>
+                ${course.description ? `<span><strong>Описание:</strong> ${course.description}</span>` : ''}
+            </div>
+            <div class="course-actions">
+                <button class="btn btn-primary btn-sm enroll-course" data-course-id="${course.id}">
+                    Записаться на курс
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    addSearchResultsEventHandlers();
+}
+
+// Отображение курсов студента
 function displayStudentCourses(courses) {
     const container = document.getElementById('student-courses-list');
     
@@ -462,7 +533,7 @@ function displayStudentCourses(courses) {
             </div>
             <div class="course-actions">
                 <button class="btn btn-primary btn-sm open-course" data-course-id="${course.id}">
-                    Перейти к курсу
+                    Открыть курс
                 </button>
             </div>
         </div>
@@ -472,10 +543,241 @@ function displayStudentCourses(courses) {
     document.querySelectorAll('.open-course').forEach(btn => {
         btn.addEventListener('click', function() {
             const courseId = this.getAttribute('data-course-id');
-            showAlert('Функционал курса в разработке', 'info');
+            openCourseDetails(courseId);
         });
     });
 }
+
+// Открытие деталей курса с лабораторными работами
+async function openCourseDetails(courseId) {
+    try {
+        // Загружаем лабораторные работы курса
+        const response = await fetch(`/api/courses/${courseId}/labs`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showCourseLabsModal(courseId, result.labs || []);
+        } else {
+            throw new Error('Ошибка загрузки лабораторных работ');
+        }
+    } catch (error) {
+        console.error('Ошибка открытия курса:', error);
+        showAlert('Ошибка загрузки курса: ' + error.message, 'error');
+    }
+}
+
+// Модальное окно с лабораторными работами курса
+function showCourseLabsModal(courseId, labs) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    modal.innerHTML = `
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Лабораторные работы курса</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="labs-list" id="course-labs-list">
+                    ${labs.length === 0 ? 
+                        '<div class="no-labs">Лабораторные работы пока не добавлены</div>' : 
+                        labs.map(lab => `
+                            <div class="lab-card" data-lab-id="${lab.id}">
+                                <div class="lab-header">
+                                    <h4 class="lab-title">${lab.title}</h4>
+                                    <span class="lab-status status-${getLabStatus(lab)}">
+                                        ${getLabStatusText(lab)}
+                                    </span>
+                                </div>
+                                <div class="lab-meta">
+                                    <span><strong>Дедлайн:</strong> ${formatDateTime(lab.deadline)}</span>
+                                    <span><strong>Макс. балл:</strong> ${lab.max_score}</span>
+                                </div>
+                                <div class="lab-description">
+                                    <p>${lab.description}</p>
+                                </div>
+                                <div class="lab-actions">
+                                    <button class="btn btn-primary btn-sm start-lab" data-lab-id="${lab.id}">
+                                        Приступить к выполнению
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики событий
+    modal.querySelector('.close').addEventListener('click', () => {
+        modal.remove();
+    });
+    
+    // Обработчики для кнопок начала выполнения
+    modal.querySelectorAll('.start-lab').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const labId = this.getAttribute('data-lab-id');
+            modal.remove();
+            openLabWorkModal(labId);
+        });
+    });
+    
+    // Закрытие при клике вне окна
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            modal.remove();
+        }
+    });
+}
+
+// Вспомогательные функции для статусов лабораторных работ
+function getLabStatus(lab) {
+    if (!lab.deadline) return 'active';
+    
+    const now = new Date();
+    const deadline = new Date(lab.deadline);
+    
+    if (now > deadline) return 'completed';
+    return 'active';
+}
+
+function getLabStatusText(lab) {
+    const status = getLabStatus(lab);
+    const statusMap = {
+        'active': 'Активна',
+        'completed': 'Завершена',
+        'upcoming': 'Скоро начнется'
+    };
+    return statusMap[status] || status;
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return 'Не указано';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('ru-RU');
+    } catch (e) {
+        return 'Неверная дата';
+    }
+}
+
+// Модальное окно выполнения лабораторной работы
+function openLabWorkModal(labId) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    modal.innerHTML = `
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Выполнение лабораторной работы</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="lab-submit-form">
+                    <input type="hidden" id="lab-id" value="${labId}">
+                    
+                    <div class="form-group">
+                        <label for="lab-files">Прикрепить файлы</label>
+                        <input type="file" id="lab-files" name="lab-files" class="form-control" multiple 
+                               accept=".pdf,.doc,.docx,.zip,.rar,.txt,.cpp,.java,.py,.html,.css,.js,.php">
+                        <small class="form-text">Можно прикрепить несколько файлов</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lab-code">Код (если требуется)</label>
+                        <textarea id="lab-code" name="lab-code" class="form-control" rows="10" 
+                                  placeholder="Вставьте ваш код здесь..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lab-comment">Комментарий к работе</label>
+                        <textarea id="lab-comment" name="lab-comment" class="form-control" rows="4" 
+                                  placeholder="Опишите особенности вашего решения..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Отправить на проверку</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики событий
+    const form = modal.querySelector('#lab-submit-form');
+    const cancelBtn = modal.querySelector('.cancel-btn');
+    const closeBtn = modal.querySelector('.close');
+    
+    form.addEventListener('submit', handleLabSubmission);
+    cancelBtn.addEventListener('click', () => modal.remove());
+    closeBtn.addEventListener('click', () => modal.remove());
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            modal.remove();
+        }
+    });
+}
+
+// Обработка отправки лабораторной работы
+async function handleLabSubmission(e) {
+    e.preventDefault();
+    
+    const labId = document.getElementById('lab-id').value;
+    const code = document.getElementById('lab-code').value;
+    const comment = document.getElementById('lab-comment').value;
+    const filesInput = document.getElementById('lab-files');
+    
+    // Проверяем, что что-то прикреплено
+    if (filesInput.files.length === 0 && !code.trim()) {
+        showAlert('Пожалуйста, прикрепите файлы или введите код', 'error');
+        return;
+    }
+    
+    try {
+        // Собираем имена файлов
+        const fileNames = Array.from(filesInput.files).map(file => file.name).join(', ');
+        
+        const response = await fetch(`/api/labs/${labId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                files: fileNames,
+                code: code,
+                comment: comment
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Закрываем модальное окно
+            document.querySelector('.modal').remove();
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('Ошибка отправки работы:', error);
+        showAlert('Ошибка отправки работы: ' + error.message, 'error');
+    }
+}
+
 function loadAvailableTasks() {
     // В реальном приложении здесь будет запрос к API
     const courses = [

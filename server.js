@@ -1154,31 +1154,31 @@ app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
 
 // Сдача лабораторной работы
 app.post('/api/labs/:id/submit', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'student') {
-        return res.status(403).json({ error: 'Доступ только для студентов' });
-    }
+  if (req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Доступ только для студентов' });
+  }
 
-    try {
-        const labId = req.params.id;
-        const { files, code, comment } = req.body;
-        
-        const submission = await db.submitLabWork({
-            lab_id: labId,
-            student_id: req.session.user.id,
-            files,
-            code,
-            comment
-        });
-        
-        res.json({ 
-            success: true, 
-            message: 'Работа успешно отправлена на проверку',
-            submission
-        });
-    } catch (error) {
-        console.error('Ошибка сдачи работы:', error);
-        res.status(500).json({ error: 'Ошибка сервера' });
-    }
+  try {
+    const labId = req.params.id;
+    const { files, code, comment } = req.body;
+    
+    const submission = await db.submitLabWork({
+      lab_id: labId,
+      student_id: req.session.user.id,
+      files,
+      code,
+      comment
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Работа успешно отправлена на проверку',
+      submission
+    });
+  } catch (error) {
+    console.error('Ошибка сдачи работы:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
 });
 
 // Получение работ для проверки (для преподавателя)
