@@ -35,24 +35,12 @@
                 <ul>
                     <li><a href="#profile" class="nav-link active" data-tab="profile">Профиль</a></li>
                     <li><a href="#my-courses" class="nav-link" data-tab="my-courses">Мои курсы</a></li>
-                    <li><a href="#my-tasks" class="nav-link" data-tab="my-tasks">Мои задания</a></li>
-                    <li><a href="#available-tasks" class="nav-link" data-tab="available-tasks">Доступные задания</a></li>
-                    <li><a href="#calendar" class="nav-link" data-tab="calendar">Календарь</a></li>
+                    <li><a href="#my-tasks" class="nav-link" data-tab="my-tasks">Активные задания</a></li>
                 </ul>
             </nav>
 
             <div class="dashboard-content">
                 
-                <div id="courses" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Мои курсы</h3>
-                        <a href="student-courses.html" class="btn btn-primary">Найти новые курсы</a>
-                    </div>
-                    <div class="courses-list" id="student-courses-list">
-                        <div class="loading">Загрузка курсов...</div>
-                    </div>
-                </div>
-
                 <!-- Вкладка Профиль -->
                 <div id="profile" class="tab-content active">
                     <div class="tab-header">
@@ -113,17 +101,7 @@
                     </div>
                 </div>
 
-                <div id="settings" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Настройки профиля</h3>
-                    </div>
-                    <div class="settings-redirect">
-                        <p>Для управления настройками профиля перейдите на специальную страницу:</p>
-                        <a href="settings.html" class="btn btn-primary">Перейти к настройкам</a>
-                    </div>
-                </div>
-
-                <!-- И добавьте вкладку для курсов: -->
+                <!-- Вкладка Мои курсы -->
                 <div id="my-courses" class="tab-content">
                     <div class="tab-header">
                         <h3>Мои курсы</h3>
@@ -134,80 +112,13 @@
                     </div>
                 </div>
 
-                <!-- Вкладка Мои задания -->
+                <!-- Вкладка Активные задания -->
                 <div id="my-tasks" class="tab-content">
                     <div class="tab-header">
-                        <h3>Мои задания</h3>
-                        <div class="filter-options">
-                            <select id="task-filter">
-                                <option value="all">Все задания</option>
-                                <option value="active">Активные</option>
-                                <option value="completed">Выполненные</option>
-                                <option value="overdue">Просроченные</option>
-                            </select>
-                        </div>
+                        <h3>Активные лабораторные работы</h3>
                     </div>
                     <div class="tasks-list" id="tasks-container">
-                        <!-- Задания будут загружены через JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Вкладка Доступные задания -->
-                <div id="available-tasks" class="tab-content">
-                    <h3>Доступные задания</h3>
-                    <div class="courses-list">
-                        <!-- Курсы и задания будут загружены через JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Вкладка Сданные работы -->
-                <div id="submitted-works" class="tab-content">
-                    <h3>Сданные работы</h3>
-                    <div class="submitted-works-list">
-                        <!-- Сданные работы будут загружены через JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Вкладка Календарь -->
-                <div id="calendar" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Календарь заданий</h3>
-                        <div class="calendar-controls">
-                            <button id="prev-month" class="btn btn-secondary">&lt;</button>
-                            <span id="current-month">Май 2025</span>
-                            <button id="next-month" class="btn btn-secondary">&gt;</button>
-                        </div>
-                    </div>
-                    <div class="calendar-container">
-                        <div class="calendar" id="calendar-widget">
-                            <!-- Календарь будет сгенерирован через JavaScript -->
-                        </div>
-                        <div class="upcoming-deadlines">
-                            <h4>Ближайшие дедлайны</h4>
-                            <div class="deadlines-list">
-                                <!-- Дедлайны будут загружены через JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Вкладка Общение -->
-                <div id="chat" class="tab-content">
-                    <h3>Общение</h3>
-                    <div class="chat-container">
-                        <div class="chat-list">
-                            <div class="chat-search">
-                                <input type="text" placeholder="Поиск чатов..." class="form-control">
-                            </div>
-                            <div class="chats">
-                                <!-- Список чатов будет загружен через JavaScript -->
-                            </div>
-                        </div>
-                        <div class="chat-window">
-                            <div class="chat-placeholder">
-                                <p>Выберите чат для начала общения</p>
-                            </div>
-                        </div>
+                        <div class="loading">Загрузка заданий...</div>
                     </div>
                 </div>
             </div>

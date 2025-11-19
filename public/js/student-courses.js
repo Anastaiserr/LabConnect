@@ -4,10 +4,13 @@
 let currentEnrollCourseId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ student-courses.js загружен');
     initStudentCourses();
 });
 
 async function initStudentCourses() {
+    console.log('🎯 Инициализация страницы курсов студента');
+    
     // Загрузка данных пользователя
     await loadStudentData();
     
@@ -17,18 +20,29 @@ async function initStudentCourses() {
     // Инициализация обработчиков событий
     initEventHandlers();
 
+    // Проверка параметров URL (для инвайт-ссылок)
     checkUrlParams();
+    
+    console.log('✅ Страница курсов инициализирована');
 }
 
 async function loadStudentData() {
     try {
-        const response = await API.getCurrentUser();
-        if (response.user) {
-            document.getElementById('current-user').textContent = 
-                `${response.user.firstName} ${response.user.lastName} (Студент)`;
+        const response = await fetch('/api/user', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.user) {
+                document.getElementById('current-user').textContent = 
+                    `${data.user.firstName} ${data.user.lastName} (Студент)`;
+            }
+        } else {
+            throw new Error('Ошибка загрузки данных');
         }
     } catch (error) {
-        console.error('Ошибка загрузки данных пользователя:', error);
+        console.error('❌ Ошибка загрузки данных пользователя:', error);
         window.location.href = 'login.html';
     }
 }
@@ -46,7 +60,7 @@ async function loadMyCourses() {
             throw new Error('Ошибка загрузки курсов');
         }
     } catch (error) {
-        console.error('Ошибка загрузки моих курсов:', error);
+        console.error('❌ Ошибка загрузки моих курсов:', error);
         document.getElementById('my-courses-list').innerHTML = 
             '<div class="error-message">Ошибка загрузки курсов</div>';
     }
@@ -95,6 +109,9 @@ function initEventHandlers() {
     
     if (searchBtn) {
         searchBtn.addEventListener('click', searchCourses);
+        console.log('✅ Обработчик поиска добавлен');
+    } else {
+        console.error('❌ Кнопка поиска не найдена');
     }
     
     if (searchInput) {
@@ -135,22 +152,36 @@ async function searchCourses() {
     }
     
     const resultsContainer = document.getElementById('search-results');
+    if (!resultsContainer) {
+        console.error('❌ Контейнер результатов поиска не найден');
+        return;
+    }
+    
     resultsContainer.innerHTML = '<div class="loading">Поиск курсов...</div>';
     
     try {
+        console.log('🔍 Поиск курсов по запросу:', query);
+        
         const response = await fetch(`/api/courses/search?query=${encodeURIComponent(query)}`, {
             credentials: 'include'
         });
         
+        console.log('📊 Статус ответа поиска:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Найдены курсы:', result.courses);
             displaySearchResults(result.courses || []);
         } else {
-            throw new Error('Ошибка поиска');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка поиска');
         }
     } catch (error) {
-        console.error('Ошибка поиска курсов:', error);
-        resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска курсов</div>';
+        console.error('❌ Ошибка поиска курсов:', error);
+        const resultsContainer = document.getElementById('search-results');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = '<div class="error-message">Ошибка поиска курсов: ' + error.message + '</div>';
+        }
     }
 }
 
@@ -242,7 +273,7 @@ async function openEnrollModal(courseId) {
             throw new Error('Ошибка загрузки информации о курсе');
         }
     } catch (error) {
-        console.error('Ошибка открытия модального окна записи:', error);
+        console.error('❌ Ошибка открытия модального окна записи:', error);
         showAlert('Ошибка загрузки информации о курсе', 'error');
     }
 }
@@ -280,7 +311,7 @@ async function handleEnrollment(e) {
             throw new Error(errorData.error || 'Ошибка записи на курс');
         }
     } catch (error) {
-        console.error('Ошибка записи на курс:', error);
+        console.error('❌ Ошибка записи на курс:', error);
         showAlert(error.message, 'error');
     }
 }
@@ -289,110 +320,100 @@ async function handleEnrollment(e) {
 function checkUrlParams() {
     const urlParams = new URLSearchParams(window.location.search);
     const courseId = urlParams.get('course');
+    const inviteCode = urlParams.get('invite');
     
     if (courseId) {
         openEnrollModal(courseId);
+    } else if (inviteCode) {
+        openInviteModal(inviteCode);
     }
-}
-
-// Проверка параметров URL при загрузке страницы
-function checkUrlParams() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const courseId = urlParams.get('course');
-  const inviteCode = urlParams.get('invite');
-  
-  if (courseId) {
-    openEnrollModal(courseId);
-  } else if (inviteCode) {
-    openInviteModal(inviteCode);
-  }
 }
 
 // Функция для открытия модального окна с инвайтом
 async function openInviteModal(inviteCode) {
-  try {
-    const response = await fetch(`/api/courses/invite/${inviteCode}/info`, {
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      const result = await response.json();
-      
-      // Показываем модальное окно с информацией о курсе
-      showInviteCourseModal(result.course, inviteCode);
-    } else {
-      const errorData = await response.json();
-      showAlert(errorData.error, 'error');
+    try {
+        const response = await fetch(`/api/courses/invite/${inviteCode}/info`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Показываем модальное окно с информацией о курсе
+            showInviteCourseModal(result.course, inviteCode);
+        } else {
+            const errorData = await response.json();
+            showAlert(errorData.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка проверки инвайта:', error);
+        showAlert('Ошибка проверки приглашения', 'error');
     }
-  } catch (error) {
-    console.error('Ошибка проверки инвайта:', error);
-    showAlert('Ошибка проверки приглашения', 'error');
-  }
 }
 
 // Функция для отображения модального окна с инвайтом
 function showInviteCourseModal(course, inviteCode) {
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.display = 'block';
-  modal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Приглашение на курс</h3>
-        <span class="close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
-      </div>
-      <div class="modal-body">
-        <div class="course-info">
-          <h4>${course.name}</h4>
-          <p><strong>Дисциплина:</strong> ${course.discipline}</p>
-          <p><strong>Преподаватель:</strong> ${course.teacher_name}</p>
-          ${course.description ? `<p><strong>Описание:</strong> ${course.description}</p>` : ''}
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Приглашение на курс</h3>
+                <span class="close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="course-info">
+                    <h4>${course.name}</h4>
+                    <p><strong>Дисциплина:</strong> ${course.discipline}</p>
+                    <p><strong>Преподаватель:</strong> ${course.teacher_name}</p>
+                    ${course.description ? `<p><strong>Описание:</strong> ${course.description}</p>` : ''}
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="enrollByInvite('${inviteCode}')">Записаться на курс</button>
+                </div>
+            </div>
         </div>
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Отмена</button>
-          <button type="button" class="btn btn-primary" onclick="enrollByInvite('${inviteCode}')">Записаться на курс</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
+    `;
+    
+    document.body.appendChild(modal);
 }
 
 // Функция для записи по инвайту
 async function enrollByInvite(inviteCode) {
-  try {
-    const response = await fetch('/api/courses/enroll-by-invite', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ inviteCode })
-    });
-    
-    if (response.ok) {
-      const result = await response.json();
-      showAlert(result.message, 'success');
-      
-      // Закрываем модальное окно
-      document.querySelector('.modal').remove();
-      
-      // Обновляем список курсов
-      await loadMyCourses();
-      
-      // Убираем параметр invite из URL
-      const url = new URL(window.location);
-      url.searchParams.delete('invite');
-      window.history.replaceState({}, '', url);
-    } else {
-      const errorData = await response.json();
-      throw new Error(errorData.error);
+    try {
+        const response = await fetch('/api/courses/enroll-by-invite', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ inviteCode })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Закрываем модальное окно
+            document.querySelector('.modal').remove();
+            
+            // Обновляем список курсов
+            await loadMyCourses();
+            
+            // Убираем параметр invite из URL
+            const url = new URL(window.location);
+            url.searchParams.delete('invite');
+            window.history.replaceState({}, '', url);
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('❌ Ошибка записи по инвайту:', error);
+        showAlert(error.message, 'error');
     }
-  } catch (error) {
-    console.error('Ошибка записи по инвайту:', error);
-    showAlert(error.message, 'error');
-  }
 }
 
 function showAlert(message, type = 'info') {

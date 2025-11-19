@@ -1281,6 +1281,91 @@ app.get('/api/student/submissions', requireAuth, async (req, res) => {
     }
 });
 
+// server.js - добавьте эти эндпоинты
+
+// Удаление студента с курса
+app.delete('/api/courses/:courseId/students/:studentId', requireAuth, async (req, res) => {
+    try {
+        const courseId = req.params.courseId;
+        const studentId = req.params.studentId;
+        
+        console.log('🔄 Удаление студента', studentId, 'с курса', courseId);
+
+        const course = db.findCourseById(courseId);
+        if (!course) {
+            return res.status(404).json({ error: 'Курс не найден' });
+        }
+
+        // Проверяем, что преподаватель имеет доступ к курсу
+        if (course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        // Находим и удаляем запись о записи на курс
+        const enrollmentIndex = db.data.enrollments.findIndex(
+            e => e.course_id == courseId && e.student_id == studentId
+        );
+        
+        if (enrollmentIndex === -1) {
+            return res.status(404).json({ error: 'Студент не записан на этот курс' });
+        }
+
+        // Удаляем запись о записи
+        db.data.enrollments.splice(enrollmentIndex, 1);
+        
+        // Также удаляем все сдачи работ этого студента по лабораторным этого курса
+        if (db.data.submissions) {
+            // Находим все лабораторные работы курса
+            const courseLabs = db.data.labs.filter(lab => lab.course_id == courseId);
+            const courseLabIds = courseLabs.map(lab => lab.id);
+            
+            // Удаляем сдачи работ студента по этим лабораторным
+            db.data.submissions = db.data.submissions.filter(
+                submission => !(courseLabIds.includes(submission.lab_id) && submission.student_id == studentId)
+            );
+        }
+
+        db.save();
+        
+        console.log('✅ Студент удален с курса');
+        
+        res.json({ 
+            success: true, 
+            message: 'Студент удален с курса' 
+        });
+    } catch (error) {
+        console.error('❌ Ошибка удаления студента:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение курсов студента с логированием
+app.get('/api/student/courses', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const courses = db.getStudentCourses(req.session.user.id);
+        console.log('📊 Курсы студента', req.session.user.id, ':', courses);
+        
+        // Добавляем информацию о преподавателе
+        const coursesWithTeachers = courses.map(course => {
+            const teacher = db.findUserById(course.teacher_id);
+            return {
+                ...course,
+                teacher_first_name: teacher?.firstName || 'Неизвестно',
+                teacher_last_name: teacher?.lastName || 'Неизвестно'
+            };
+        });
+        
+        res.json({ courses: coursesWithTeachers });
+    } catch (error) {
+        console.error('Ошибка получения курсов студента:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
 // Все остальные GET запросы
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

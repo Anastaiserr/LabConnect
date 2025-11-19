@@ -776,9 +776,41 @@ function addStudentEventHandlers() {
     document.querySelectorAll('.remove-student').forEach(btn => {
         btn.addEventListener('click', function() {
             const studentId = this.getAttribute('data-student-id');
-            showAlert('Функция удаления студентов в разработке', 'info');
+            removeStudentFromCourse(studentId);
         });
     });
+}
+
+// Функция удаления студента с курса
+async function removeStudentFromCourse(studentId) {
+    if (!confirm('Вы уверены, что хотите удалить этого студента с курса? Все его сданные работы также будут удалены.')) {
+        return;
+    }
+    
+    try {
+        console.log('🔄 Удаление студента', studentId, 'с курса', currentCourseId);
+        
+        const response = await fetch(`/api/courses/${currentCourseId}/students/${studentId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Перезагружаем список студентов
+            await loadCourseStudents(currentCourseId);
+            await loadCourseStudentsCount(currentCourseId);
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('❌ Ошибка удаления студента:', error);
+        showAlert('Ошибка удаления: ' + error.message, 'error');
+    }
 }
 
 // Поиск студентов
@@ -913,7 +945,7 @@ async function addStudentToCourse(studentId) {
     }
 }
 
-// Функция для отображения студентов курса
+// Обновите функцию displayCourseStudents
 function displayCourseStudents(students) {
     const container = document.getElementById('course-students-list');
     const countElement = document.getElementById('students-count');
@@ -943,7 +975,7 @@ function displayCourseStudents(students) {
             </div>
             <div class="student-actions">
                 <button class="btn btn-danger btn-sm remove-student" data-student-id="${student.id}">
-                    Удалить
+                    Удалить с курса
                 </button>
             </div>
         </div>
