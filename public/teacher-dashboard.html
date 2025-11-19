@@ -37,7 +37,6 @@
                     <li><a href="#disciplines" class="nav-link" data-tab="disciplines">Дисциплины и Курсы</a></li>
                     <li><a href="#check-works" class="nav-link" data-tab="check-works">Проверка работ</a></li>
                     <li><a href="#statements" class="nav-link" data-tab="statements">Ведомости</a></li>
-                    <li><a href="#chat" class="nav-link" data-tab="chat">Общение</a></li>
                 </ul>
             </nav>
 
@@ -129,12 +128,12 @@
                                 <option value="all">Все работы</option>
                                 <option value="pending">Ожидают проверки</option>
                                 <option value="checked">Проверенные</option>
-                                <option value="overdue">Просроченные</option>
+                                <option value="revision">На доработку</option>
                             </select>
                         </div>
                     </div>
                     <div class="works-to-check">
-                        <div class="works-list">
+                        <div class="submissions-list" id="submissions-list">
                             <div class="loading">Загрузка работ для проверки...</div>
                         </div>
                     </div>
@@ -164,27 +163,100 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Вкладка Общение -->
-                <div id="chat" class="tab-content">
-                    <h3>Общение со студентами</h3>
-                    <div class="teacher-chat-container">
-                        <div class="chat-groups">
-                            <h4>Группы и студенты</h4>
-                            <div class="groups-list">
-                                <div class="loading">Загрузка чатов...</div>
-                            </div>
-                        </div>
-                        <div class="chat-window">
-                            <div class="chat-placeholder">
-                                <p>Выберите чат для общения</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </main>
+
+    <!-- Модальное окно проверки работы -->
+    <div id="grade-submission-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="grade-submission-title">Проверка работы</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="submission-info">
+                    <h4>Информация о работе</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Студент:</label>
+                            <span id="submission-student-name">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Группа:</label>
+                            <span id="submission-student-group">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Лабораторная работа:</label>
+                            <span id="submission-lab-title">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Курс:</label>
+                            <span id="submission-course-name">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Дата сдачи:</label>
+                            <span id="submission-date">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="submission-content">
+                    <h4>Работа студента</h4>
+                    
+                    <div class="submission-files" id="submission-files" style="display: none;">
+                        <h5>Прикрепленные файлы:</h5>
+                        <div class="files-list" id="files-list"></div>
+                    </div>
+                    
+                    <div class="submission-code" id="submission-code" style="display: none;">
+                        <h5>Код:</h5>
+                        <pre><code id="submission-code-content"></code></pre>
+                    </div>
+                    
+                    <div class="submission-comment" id="submission-comment" style="display: none;">
+                        <h5>Комментарий студента:</h5>
+                        <div class="comment-content" id="submission-comment-content"></div>
+                    </div>
+                </div>
+
+                <div class="grading-section">
+                    <h4>Оценка работы</h4>
+                    <form id="grade-submission-form">
+                        <input type="hidden" id="grade-submission-id">
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="submission-score">Оценка</label>
+                                <input type="number" id="submission-score" name="submission-score" 
+                                       class="form-control" min="0" max="100" placeholder="0-100">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="submission-status">Статус</label>
+                                <select id="submission-status" name="submission-status" class="form-control" required>
+                                    <option value="checked">Принято</option>
+                                    <option value="revision">На доработку</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="teacher-comment">Комментарий преподавателя</label>
+                            <textarea id="teacher-comment" name="teacher-comment" class="form-control" 
+                                      rows="4" placeholder="Ваш комментарий к работе..."></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Сохранить оценку</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Модальное окно создания курса -->
     <div id="create-course-modal" class="modal">

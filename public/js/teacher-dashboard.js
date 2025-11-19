@@ -132,6 +132,9 @@ function initTeacherModals() {
     
     // 7. Инициализация вкладок в модальном окне управления курсом
     initCourseManagementTabs();
+
+    // 8. Форма оценки работы
+    initGradingForm();
     
     // Закрытие модальных окон
     document.querySelectorAll('.close, .cancel-btn').forEach(btn => {
@@ -476,6 +479,7 @@ async function loadCourseLabs(courseId) {
 }
 
 // Отображение лабораторных работ курса
+// Обновите отображение лабораторных работ (уберите кнопку "Работы студентов")
 function displayCourseLabs(labs) {
     const container = document.getElementById('course-labs-list');
     
@@ -508,9 +512,6 @@ function displayCourseLabs(labs) {
                 <p>${lab.description}</p>
             </div>
             <div class="lab-actions">
-                <button class="btn btn-primary btn-sm view-submissions" data-lab-id="${lab.id}">
-                    Работы студентов
-                </button>
                 <button class="btn btn-danger btn-sm delete-lab" data-lab-id="${lab.id}">
                     Удалить
                 </button>
@@ -520,6 +521,14 @@ function displayCourseLabs(labs) {
     
     // Добавляем обработчики для кнопок лабораторных работ
     addLabEventHandlers();
+}
+
+// Инициализация формы оценки
+function initGradingForm() {
+    const gradeForm = document.getElementById('grade-submission-form');
+    if (gradeForm) {
+        gradeForm.addEventListener('submit', gradeSubmission);
+    }
 }
 
 // Обработчики событий для лабораторных работ
@@ -1190,15 +1199,267 @@ function showAlert(message, type = 'info') {
     }, 5000);
 }
 
-// Заглушки для остальных функций
+// Загрузка работ для проверки
 async function loadWorksToCheck() {
-    console.log('📝 Загрузка работ для проверки...');
-    const worksList = document.querySelector('.works-list');
-    worksList.innerHTML = `
-        <div class="no-works">
-            <p>Работ для проверки пока нет</p>
+    try {
+        const submissionsList = document.getElementById('submissions-list');
+        submissionsList.innerHTML = '<div class="loading">Загрузка работ для проверки...</div>';
+        
+        const response = await fetch('/api/teacher/submissions', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            displaySubmissions(result.submissions || []);
+        } else {
+            throw new Error('Ошибка загрузки работ');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки работ:', error);
+        const submissionsList = document.getElementById('submissions-list');
+        submissionsList.innerHTML = `
+            <div class="error-message">
+                <p>Ошибка загрузки работ: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Отображение списка работ
+function displaySubmissions(submissions) {
+    const container = document.getElementById('submissions-list');
+    
+    if (!submissions || submissions.length === 0) {
+        container.innerHTML = `
+            <div class="no-submissions">
+                <p>Работ для проверки пока нет</p>
+                <p>Студенты еще не сдали ни одной работы</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Фильтрация работ
+    const filter = document.getElementById('works-filter').value;
+    let filteredSubmissions = submissions;
+    
+    if (filter !== 'all') {
+        filteredSubmissions = submissions.filter(s => s.status === filter);
+    }
+    
+    if (filteredSubmissions.length === 0) {
+        container.innerHTML = `
+            <div class="no-submissions">
+                <p>Нет работ с выбранным статусом</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = filteredSubmissions.map(submission => `
+        <div class="submission-card status-${submission.status}" data-submission-id="${submission.id}">
+            <div class="submission-header">
+                <h4 class="submission-title">${submission.lab_title}</h4>
+                <span class="submission-status status-${submission.status}">
+                    ${getSubmissionStatusText(submission.status)}
+                </span>
+            </div>
+            <div class="submission-meta">
+                <span><strong>Студент:</strong> ${submission.student_name}</span>
+                <span><strong>Группа:</strong> ${submission.student_group || 'Не указана'}</span>
+                <span><strong>Курс:</strong> ${submission.course_name}</span>
+                <span><strong>Сдана:</strong> ${formatDateTime(submission.submitted_at)}</span>
+                ${submission.score !== null ? `<span><strong>Оценка:</strong> ${submission.score}</span>` : ''}
+            </div>
+            <div class="submission-preview">
+                ${submission.comment ? `<p><strong>Комментарий студента:</strong> ${submission.comment}</p>` : ''}
+                ${submission.teacher_comment ? `<p><strong>Комментарий преподавателя:</strong> ${submission.teacher_comment}</p>` : ''}
+            </div>
+            <div class="submission-actions">
+                <button class="btn btn-primary btn-sm grade-submission" data-submission-id="${submission.id}">
+                    ${submission.status === 'pending' ? 'Проверить' : 'Посмотреть'}
+                </button>
+            </div>
         </div>
-    `;
+    `).join('');
+    
+    // Добавляем обработчики для кнопок проверки
+    addSubmissionEventHandlers();
+}
+
+// Обработчики событий для работ
+function addSubmissionEventHandlers() {
+    // Кнопка "Проверить/Посмотреть"
+    document.querySelectorAll('.grade-submission').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const submissionId = this.getAttribute('data-submission-id');
+            openGradeModal(submissionId);
+        });
+    });
+    
+    // Фильтр работ
+    const worksFilter = document.getElementById('works-filter');
+    if (worksFilter) {
+        worksFilter.addEventListener('change', function() {
+            loadWorksToCheck();
+        });
+    }
+}
+
+// Открытие модального окна проверки работы
+async function openGradeModal(submissionId) {
+    try {
+        // Находим данные работы в текущем списке
+        const submissionCard = document.querySelector(`[data-submission-id="${submissionId}"]`);
+        if (!submissionCard) {
+            throw new Error('Работа не найдена');
+        }
+        
+        // Загружаем полные данные работы
+        const submissions = await getTeacherSubmissions();
+        const submission = submissions.find(s => s.id == submissionId);
+        
+        if (!submission) {
+            throw new Error('Данные работы не найдены');
+        }
+        
+        // Заполняем модальное окно
+        document.getElementById('grade-submission-id').value = submissionId;
+        document.getElementById('grade-submission-title').textContent = `Проверка: ${submission.lab_title}`;
+        document.getElementById('submission-student-name').textContent = submission.student_name;
+        document.getElementById('submission-student-group').textContent = submission.student_group || 'Не указана';
+        document.getElementById('submission-lab-title').textContent = submission.lab_title;
+        document.getElementById('submission-course-name').textContent = submission.course_name;
+        document.getElementById('submission-date').textContent = formatDateTime(submission.submitted_at);
+        
+        // Показываем файлы
+        const filesSection = document.getElementById('submission-files');
+        const filesList = document.getElementById('files-list');
+        if (submission.files) {
+            filesSection.style.display = 'block';
+            filesList.innerHTML = `
+                <div class="file-item">
+                    <span class="file-icon">📎</span>
+                    <span class="file-name">${submission.files}</span>
+                    <button class="btn btn-secondary btn-sm download-file" data-filename="${submission.files}">
+                        Скачать
+                    </button>
+                </div>
+            `;
+        } else {
+            filesSection.style.display = 'none';
+        }
+        
+        // Показываем код
+        const codeSection = document.getElementById('submission-code');
+        const codeContent = document.getElementById('submission-code-content');
+        if (submission.code) {
+            codeSection.style.display = 'block';
+            codeContent.textContent = submission.code;
+        } else {
+            codeSection.style.display = 'none';
+        }
+        
+        // Показываем комментарий студента
+        const commentSection = document.getElementById('submission-comment');
+        const commentContent = document.getElementById('submission-comment-content');
+        if (submission.comment) {
+            commentSection.style.display = 'block';
+            commentContent.textContent = submission.comment;
+        } else {
+            commentSection.style.display = 'none';
+        }
+        
+        // Заполняем форму оценки
+        document.getElementById('submission-score').value = submission.score || '';
+        document.getElementById('submission-status').value = submission.status || 'checked';
+        document.getElementById('teacher-comment').value = submission.teacher_comment || '';
+        
+        // Показываем модальное окно
+        document.getElementById('grade-submission-modal').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Ошибка открытия проверки:', error);
+        showAlert('Ошибка загрузки данных работы', 'error');
+    }
+}
+
+// Получение списка работ для преподавателя
+async function getTeacherSubmissions() {
+    try {
+        const response = await fetch('/api/teacher/submissions', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            return result.submissions || [];
+        } else {
+            throw new Error('Ошибка загрузки работ');
+        }
+    } catch (error) {
+        console.error('Ошибка получения работ:', error);
+        return [];
+    }
+}
+
+// Оценка работы
+async function gradeSubmission(e) {
+    e.preventDefault();
+    
+    const submissionId = document.getElementById('grade-submission-id').value;
+    const score = document.getElementById('submission-score').value;
+    const status = document.getElementById('submission-status').value;
+    const teacherComment = document.getElementById('teacher-comment').value;
+    
+    if (!score && status === 'checked') {
+        showAlert('Для статуса "Принято" необходимо указать оценку', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/submissions/${submissionId}/grade`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                score: score ? parseInt(score) : null,
+                teacher_comment: teacherComment,
+                status: status
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            
+            // Закрываем модальное окно
+            document.getElementById('grade-submission-modal').style.display = 'none';
+            
+            // Перезагружаем список работ
+            await loadWorksToCheck();
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('Ошибка оценки работы:', error);
+        showAlert('Ошибка оценки: ' + error.message, 'error');
+    }
+}
+
+// Вспомогательные функции
+function getSubmissionStatusText(status) {
+    const statusMap = {
+        'pending': 'Ожидает проверки',
+        'checked': 'Проверено',
+        'revision': 'На доработку'
+    };
+    return statusMap[status] || status;
 }
 
 function loadStatementData() {

@@ -618,3 +618,40 @@ function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU');
 }
+
+// Сдача лабораторной работы
+async function submitLabWork(labId) {
+    const files = document.getElementById('lab-files').files;
+    const code = document.getElementById('lab-code').value;
+    const comment = document.getElementById('lab-comment').value;
+    
+    // Здесь можно добавить логику загрузки файлов
+    const fileNames = Array.from(files).map(file => file.name).join(', ');
+    
+    try {
+        const response = await fetch(`/api/labs/${labId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                files: fileNames,
+                code: code,
+                comment: comment
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            // Закрыть модальное окно сдачи и т.д.
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
+    } catch (error) {
+        console.error('Ошибка сдачи работы:', error);
+        showAlert('Ошибка сдачи работы: ' + error.message, 'error');
+    }
+}

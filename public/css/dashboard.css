@@ -1269,3 +1269,152 @@ select.form-control {
     color: #666;
     margin-top: 0.5rem;
 }
+
+/* Стили для проверки работ */
+.submissions-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.submission-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border-left: 4px solid #3498db;
+    transition: all 0.3s;
+}
+
+.submission-card.status-pending {
+    border-left-color: #f39c12;
+    background: #fffaf0;
+}
+
+.submission-card.status-checked {
+    border-left-color: #27ae60;
+    background: #f0fff4;
+}
+
+.submission-card.status-revision {
+    border-left-color: #e74c3c;
+    background: #fff5f5;
+}
+
+.submission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.submission-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.submission-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.submission-preview {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+.submission-preview p {
+    margin: 0.5rem 0;
+}
+
+.submission-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.no-submissions {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+/* Стили для модального окна проверки */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.submission-content {
+    margin-bottom: 2rem;
+}
+
+.submission-content h4 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.files-list {
+    margin-bottom: 1rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.file-icon {
+    font-size: 1.2rem;
+}
+
+.file-name {
+    flex: 1;
+}
+
+.submission-code pre {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    max-height: 300px;
+}
+
+.comment-content {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+    white-space: pre-wrap;
+}
+
+.grading-section {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1.5rem;
+}

@@ -380,6 +380,74 @@ forceEnrollStudent(courseId, studentId) {
     return enrollment;
 }
 
+// Сдача лабораторной работы студентом
+submitLabWork(submissionData) {
+    const { lab_id, student_id, files, code, comment } = submissionData;
+    
+    const submission = {
+        id: Date.now(),
+        lab_id: parseInt(lab_id),
+        student_id: parseInt(student_id),
+        files: files || null,
+        code: code || null,
+        comment: comment || null,
+        score: null,
+        teacher_comment: null,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        checked_at: null
+    };
+    
+    if (!this.data.submissions) {
+        this.data.submissions = [];
+    }
+    
+    this.data.submissions.push(submission);
+    this.save();
+    return submission;
+}
+
+// Получение работ для проверки преподавателем
+getSubmissionsForTeacher(teacherId) {
+    if (!this.data.submissions) return [];
+    
+    return this.data.submissions.filter(submission => {
+        const lab = this.data.labs.find(l => l.id == submission.lab_id);
+        if (!lab) return false;
+        
+        const course = this.data.courses.find(c => c.id == lab.course_id);
+        return course && course.teacher_id == teacherId;
+    });
+}
+
+// Получение работ по конкретной лабораторной работе
+getSubmissionsByLab(labId) {
+    if (!this.data.submissions) return [];
+    return this.data.submissions.filter(s => s.lab_id == labId);
+}
+
+// Оценка работы преподавателем
+gradeSubmission(submissionId, gradeData) {
+    const submission = this.data.submissions.find(s => s.id == submissionId);
+    if (!submission) {
+        throw new Error('Работа не найдена');
+    }
+    
+    submission.score = gradeData.score;
+    submission.teacher_comment = gradeData.teacher_comment;
+    submission.status = gradeData.status;
+    submission.checked_at = new Date().toISOString();
+    
+    this.save();
+    return submission;
+}
+
+// Получение сданных работ студента
+getStudentSubmissions(studentId) {
+    if (!this.data.submissions) return [];
+    return this.data.submissions.filter(s => s.student_id == studentId);
+}
+
 }
 
 // Инициализация базы данных
@@ -1084,6 +1152,134 @@ app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
     }
 });
 
+// Сдача лабораторной работы
+app.post('/api/labs/:id/submit', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const labId = req.params.id;
+        const { files, code, comment } = req.body;
+        
+        const submission = await db.submitLabWork({
+            lab_id: labId,
+            student_id: req.session.user.id,
+            files,
+            code,
+            comment
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Работа успешно отправлена на проверку',
+            submission
+        });
+    } catch (error) {
+        console.error('Ошибка сдачи работы:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение работ для проверки (для преподавателя)
+app.get('/api/teacher/submissions', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
+
+    try {
+        const submissions = await db.getSubmissionsForTeacher(req.session.user.id);
+        
+        // Добавляем информацию о студентах и лабораторных работах
+        const submissionsWithDetails = submissions.map(submission => {
+            const student = db.findUserById(submission.student_id);
+            const lab = db.data.labs.find(l => l.id == submission.lab_id);
+            const course = lab ? db.data.courses.find(c => c.id == lab.course_id) : null;
+            
+            return {
+                ...submission,
+                student_name: student ? `${student.firstName} ${student.lastName}` : 'Неизвестно',
+                student_group: student ? student.group : null,
+                lab_title: lab ? lab.title : 'Неизвестно',
+                course_name: course ? course.name : 'Неизвестно'
+            };
+        });
+        
+        res.json({ submissions: submissionsWithDetails });
+    } catch (error) {
+        console.error('Ошибка получения работ:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Оценка работы
+app.post('/api/submissions/:id/grade', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'teacher') {
+        return res.status(403).json({ error: 'Доступ только для преподавателей' });
+    }
+
+    try {
+        const submissionId = req.params.id;
+        const { score, teacher_comment, status } = req.body;
+        
+        // Проверяем, что преподаватель имеет доступ к этой работе
+        const submission = db.data.submissions.find(s => s.id == submissionId);
+        if (!submission) {
+            return res.status(404).json({ error: 'Работа не найдена' });
+        }
+        
+        const lab = db.data.labs.find(l => l.id == submission.lab_id);
+        const course = lab ? db.data.courses.find(c => c.id == lab.course_id) : null;
+        
+        if (!course || course.teacher_id != req.session.user.id) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+        
+        const updatedSubmission = await db.gradeSubmission(submissionId, {
+            score: parseInt(score),
+            teacher_comment,
+            status
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Работа оценена',
+            submission: updatedSubmission
+        });
+    } catch (error) {
+        console.error('Ошибка оценки работы:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение сданных работ студента
+app.get('/api/student/submissions', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
+
+    try {
+        const submissions = await db.getStudentSubmissions(req.session.user.id);
+        
+        // Добавляем информацию о лабораторных работах
+        const submissionsWithDetails = submissions.map(submission => {
+            const lab = db.data.labs.find(l => l.id == submission.lab_id);
+            const course = lab ? db.data.courses.find(c => c.id == lab.course_id) : null;
+            
+            return {
+                ...submission,
+                lab_title: lab ? lab.title : 'Неизвестно',
+                course_name: course ? course.name : 'Неизвестно',
+                max_score: lab ? lab.max_score : 10
+            };
+        });
+        
+        res.json({ submissions: submissionsWithDetails });
+    } catch (error) {
+        console.error('Ошибка получения работ:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
 
 // Все остальные GET запросы
 app.get('*', (req, res) => {
