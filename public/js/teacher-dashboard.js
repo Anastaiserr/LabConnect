@@ -1028,16 +1028,29 @@ async function createNewLab() {
     }
     
     const formData = new FormData(form);
+    formData.append('course_id', currentCourseId);
+    
+    // Отладочная информация
+    debugFormData(formData);
     
     // Валидация
-    if (!formData.get('lab-name') || !formData.get('lab-description')) {
+    const labName = formData.get('name');
+    const labDescription = formData.get('description');
+    
+    console.log('🔍 Проверка обязательных полей:', {
+        name: labName,
+        description: labDescription,
+        course_id: formData.get('course_id')
+    });
+    
+    if (!labName || !labDescription) {
         showAlert('Название и описание обязательны для заполнения', 'error');
         return;
     }
     
     // Проверка дат
-    const startDate = new Date(formData.get('lab-start-date'));
-    const deadline = new Date(formData.get('lab-deadline'));
+    const startDate = new Date(formData.get('start_date'));
+    const deadline = new Date(formData.get('deadline'));
     
     if (deadline <= startDate) {
         showAlert('Дедлайн должен быть позже даты начала', 'error');
@@ -1045,10 +1058,17 @@ async function createNewLab() {
     }
 
     try {
+        console.log('🔄 Отправка данных лабораторной работы:', {
+            name: formData.get('name'),
+            description: formData.get('description'),
+            course_id: formData.get('course_id'),
+            files: formData.getAll('files')
+        });
+
         const response = await fetch('/api/labs', {
             method: 'POST',
             credentials: 'include',
-            body: formData // Отправляем FormData вместо JSON
+            body: formData
         });
 
         console.log('📊 Статус создания лабораторной работы:', response.status);
@@ -1147,6 +1167,14 @@ function formatDateTime(dateString) {
         return date.toLocaleString('ru-RU');
     } catch (e) {
         return 'Неверная дата';
+    }
+}
+
+// Добавьте эту функцию для отладки формы
+function debugFormData(formData) {
+    console.log('🔍 Отладочная информация FormData:');
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ', pair[1]);
     }
 }
 

@@ -700,8 +700,16 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
 
   const { name, description, course_id, template_code, start_date, deadline, max_score, requirements } = req.body;
 
+  console.log('📥 Полученные данные:', {
+    name, description, course_id, template_code, start_date, deadline, max_score, requirements,
+    files: req.files ? req.files.length : 0
+  });
+
   if (!name || !description || !course_id) {
-    return res.status(400).json({ error: 'Название, описание и ID курса обязательны' });
+    return res.status(400).json({ 
+      error: 'Название, описание и ID курса обязательны',
+      received: { name, description, course_id }
+    });
   }
 
   try {
@@ -716,14 +724,16 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
       title: name,
       description,
       course_id: parseInt(course_id),
-      template_code,
-      start_date,
-      deadline,
-      max_score: max_score || 10,
-      requirements,
+      template_code: template_code || null,
+      start_date: start_date || new Date().toISOString(),
+      deadline: deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      max_score: max_score ? parseInt(max_score) : 10,
+      requirements: requirements || null,
       attached_files: attached_files.map(f => f.originalname).join(','),
       file_paths: attached_files.map(f => f.path).join(',')
     });
+    
+    console.log('✅ Лабораторная работа создана:', lab);
     
     res.json({ 
       success: true, 
@@ -735,7 +745,6 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
     res.status(500).json({ error: 'Ошибка при создании лабораторной работы' });
   }
 });
-
 // Получение лабораторных работ курса
 app.get('/api/courses/:id/labs', requireAuth, async (req, res) => {
   try {
