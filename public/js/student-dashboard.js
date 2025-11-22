@@ -608,17 +608,17 @@ async function openLabWorkModal(labId) {
                             </div>
                         ` : ''}
                         
-                        ${lab.attached_files ? `
+                        ${lab.attached_files_info && lab.attached_files_info.length > 0 ? `
                             <div class="lab-files">
                                 <h5>Файлы преподавателя:</h5>
                                 <div class="files-list">
-                                    ${lab.attached_files.split(',').map(file => `
+                                    ${lab.attached_files_info.map(file => `
                                         <div class="file-item">
                                             <span class="file-icon">📎</span>
-                                            <span class="file-name">${file.trim()}</span>
-                                            <button class="btn btn-secondary btn-sm download-file" 
-                                                    data-filename="${file.trim()}" 
-                                                    data-lab-id="${labId}">
+                                            <span class="file-name">${file.originalname}</span>
+                                            <button class="btn btn-secondary btn-sm download-teacher-file" 
+                                                    data-lab-id="${labId}" 
+                                                    data-filename="${file.originalname}">
                                                 Скачать
                                             </button>
                                         </div>
@@ -630,25 +630,25 @@ async function openLabWorkModal(labId) {
                     
                     <hr>
                     
-                    <form id="lab-submit-form">
+                    <form id="lab-submit-form" enctype="multipart/form-data">
                         <input type="hidden" id="lab-id" value="${labId}">
                         
                         <div class="form-group">
                             <label for="lab-files">Прикрепить файлы с решением *</label>
-                            <input type="file" id="lab-files" name="lab-files" class="form-control" multiple 
-                                   accept=".pdf,.doc,.docx,.zip,.rar,.txt,.cpp,.java,.py,.html,.css,.js,.php,.c,.h,.cs,.sql,.xml,.json">
-                            <small class="form-text">Поддерживаемые форматы: PDF, Word, архив, текстовые файлы, код</small>
+                            <input type="file" id="lab-files" name="files" class="form-control" multiple 
+                                   accept=".pdf,.doc,.docx,.zip,.rar,.txt,.cpp,.java,.py,.html,.css,.js,.php,.c,.h,.cs,.sql,.xml,.json,.jpg,.jpeg,.png,.gif">
+                            <small class="form-text">Можно выбрать несколько файлов. Максимальный размер: 10MB</small>
                         </div>
                         
                         <div class="form-group">
                             <label for="lab-code">Код решения (если требуется)</label>
-                            <textarea id="lab-code" name="lab-code" class="form-control" rows="10" 
+                            <textarea id="lab-code" name="code" class="form-control" rows="10" 
                                       placeholder="Вставьте ваш код здесь..."></textarea>
                         </div>
                         
                         <div class="form-group">
                             <label for="lab-comment">Комментарий к работе</label>
-                            <textarea id="lab-comment" name="lab-comment" class="form-control" rows="4" 
+                            <textarea id="lab-comment" name="comment" class="form-control" rows="4" 
                                       placeholder="Опишите особенности вашего решения, возникшие проблемы..."></textarea>
                         </div>
                         
@@ -684,10 +684,10 @@ async function openLabWorkModal(labId) {
         }
         
         // Обработчики скачивания файлов преподавателя
-        modal.querySelectorAll('.download-file').forEach(btn => {
+        modal.querySelectorAll('.download-teacher-file').forEach(btn => {
             btn.addEventListener('click', function() {
-                const filename = this.getAttribute('data-filename');
                 const labId = this.getAttribute('data-lab-id');
+                const filename = this.getAttribute('data-filename');
                 downloadTeacherFile(labId, filename);
             });
         });
@@ -707,24 +707,27 @@ async function openLabWorkModal(labId) {
 // Скачивание файла преподавателя
 async function downloadTeacherFile(labId, filename) {
     try {
-        showAlert(`Загрузка файла: ${filename}`, 'info');
-        
-        // В реальном приложении здесь будет запрос к API для скачивания файла
-        // Сейчас создаем временную ссылку для демонстрации
-        const blob = new Blob([`Это демонстрационный файл: ${filename}\n\nСодержимое файла преподавателя для лабораторной работы.`], {
-            type: 'text/plain'
+        const response = await fetch(`/api/labs/${labId}/files/${encodeURIComponent(filename)}`, {
+            credentials: 'include'
         });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
         
+        if (response.ok) {
+            // Создаем blob и скачиваем файл
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
     } catch (error) {
-        console.error('❌ Ошибка скачивания файла:', error);
+        console.error('❌ Ошибка скачивания файла преподавателя:', error);
         showAlert('Ошибка скачивания файла: ' + error.message, 'error');
     }
 }
@@ -739,26 +742,25 @@ async function handleLabSubmission(e) {
     const filesInput = document.getElementById('lab-files');
     
     // Проверяем, что прикреплены файлы
-    if (filesInput.files.length === 0) {
-        showAlert('Пожалуйста, прикрепите файлы с решением', 'error');
+    if (filesInput.files.length === 0 && !code) {
+        showAlert('Пожалуйста, прикрепите файлы или введите код', 'error');
         return;
     }
     
     try {
-        // Собираем имена файлов
-        const fileNames = Array.from(filesInput.files).map(file => file.name).join(', ');
+        const formData = new FormData();
+        formData.append('code', code);
+        formData.append('comment', comment);
+        
+        // Добавляем файлы
+        for (let i = 0; i < filesInput.files.length; i++) {
+            formData.append('files', filesInput.files[i]);
+        }
         
         const response = await fetch(`/api/labs/${labId}/submit`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             credentials: 'include',
-            body: JSON.stringify({
-                files: fileNames,
-                code: code,
-                comment: comment
-            })
+            body: formData
         });
         
         if (response.ok) {

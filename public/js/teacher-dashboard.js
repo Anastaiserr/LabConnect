@@ -1014,6 +1014,7 @@ function openCreateLabModal() {
 }
 
 // Функция создания новой лабораторной работы
+// Функция создания новой лабораторной работы
 async function createNewLab() {
     const form = document.getElementById('lab-create-form');
     if (!form) {
@@ -1027,29 +1028,16 @@ async function createNewLab() {
     }
     
     const formData = new FormData(form);
-    const labData = {
-        name: formData.get('lab-name'),
-        course_id: currentCourseId,
-        description: formData.get('lab-description'),
-        template_code: formData.get('lab-template') || null,
-        start_date: formData.get('lab-start-date'),
-        deadline: formData.get('lab-deadline'),
-        max_score: parseInt(formData.get('lab-max-score')),
-        attempts: parseInt(formData.get('lab-attempts')),
-        requirements: formData.get('lab-requirements') || null
-    };
-    
-    console.log('🔄 Создание лабораторной работы:', labData);
     
     // Валидация
-    if (!labData.name || !labData.description) {
+    if (!formData.get('lab-name') || !formData.get('lab-description')) {
         showAlert('Название и описание обязательны для заполнения', 'error');
         return;
     }
     
     // Проверка дат
-    const startDate = new Date(labData.start_date);
-    const deadline = new Date(labData.deadline);
+    const startDate = new Date(formData.get('lab-start-date'));
+    const deadline = new Date(formData.get('lab-deadline'));
     
     if (deadline <= startDate) {
         showAlert('Дедлайн должен быть позже даты начала', 'error');
@@ -1059,11 +1047,8 @@ async function createNewLab() {
     try {
         const response = await fetch('/api/labs', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             credentials: 'include',
-            body: JSON.stringify(labData)
+            body: formData // Отправляем FormData вместо JSON
         });
 
         console.log('📊 Статус создания лабораторной работы:', response.status);
@@ -1089,6 +1074,7 @@ async function createNewLab() {
         showAlert('Ошибка создания лабораторной работы: ' + error.message, 'error');
     }
 }
+
 
 // Создание нового курса
 async function createNewCourse() {
@@ -1342,15 +1328,17 @@ function addSubmissionEventHandlers() {
 // Открытие модального окна проверки работы
 async function openGradeModal(submissionId) {
     try {
-        // Находим данные работы в текущем списке
-        const submissionCard = document.querySelector(`[data-submission-id="${submissionId}"]`);
-        if (!submissionCard) {
-            throw new Error('Работа не найдена');
+        // Загружаем полные данные работы
+        const response = await fetch(`/api/submissions/${submissionId}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки данных работы');
         }
         
-        // Загружаем полные данные работы
-        const submissions = await getTeacherSubmissions();
-        const submission = submissions.find(s => s.id == submissionId);
+        const result = await response.json();
+        const submission = result.submission;
         
         if (!submission) {
             throw new Error('Данные работы не найдены');
@@ -1368,15 +1356,15 @@ async function openGradeModal(submissionId) {
         // Показываем файлы студента с возможностью скачивания
         const filesSection = document.getElementById('submission-files');
         const filesList = document.getElementById('files-list');
-        if (submission.files) {
+        if (submission.student_files_info && submission.student_files_info.length > 0) {
             filesSection.style.display = 'block';
-            filesList.innerHTML = submission.files.split(',').map(file => `
+            filesList.innerHTML = submission.student_files_info.map(file => `
                 <div class="file-item">
                     <span class="file-icon">📎</span>
-                    <span class="file-name">${file.trim()}</span>
+                    <span class="file-name">${file.originalname}</span>
                     <button class="btn btn-secondary btn-sm download-student-file" 
                             data-submission-id="${submissionId}" 
-                            data-filename="${file.trim()}">
+                            data-filename="${file.originalname}">
                         Скачать
                     </button>
                 </div>
@@ -1450,22 +1438,25 @@ async function getTeacherSubmissions() {
 // Функция для скачивания файлов студента
 async function downloadStudentFile(submissionId, filename) {
     try {
-        showAlert(`Загрузка файла: ${filename}`, 'info');
-        
-        // В реальном приложении здесь будет запрос к API для скачивания файла
-        // Сейчас создаем временную ссылку для демонстрации
-        const blob = new Blob([`Это демонстрационный файл студента: ${filename}\n\nСодержимое файла, отправленного студентом.`], {
-            type: 'text/plain'
+        const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
+            credentials: 'include'
         });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `student_${filename}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
         
+        if (response.ok) {
+            // Создаем blob и скачиваем файл
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error);
+        }
     } catch (error) {
         console.error('❌ Ошибка скачивания файла студента:', error);
         showAlert('Ошибка скачивания файла: ' + error.message, 'error');
