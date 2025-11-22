@@ -1365,20 +1365,22 @@ async function openGradeModal(submissionId) {
         document.getElementById('submission-course-name').textContent = submission.course_name;
         document.getElementById('submission-date').textContent = formatDateTime(submission.submitted_at);
         
-        // Показываем файлы
+        // Показываем файлы студента с возможностью скачивания
         const filesSection = document.getElementById('submission-files');
         const filesList = document.getElementById('files-list');
         if (submission.files) {
             filesSection.style.display = 'block';
-            filesList.innerHTML = `
+            filesList.innerHTML = submission.files.split(',').map(file => `
                 <div class="file-item">
                     <span class="file-icon">📎</span>
-                    <span class="file-name">${submission.files}</span>
-                    <button class="btn btn-secondary btn-sm download-file" data-filename="${submission.files}">
+                    <span class="file-name">${file.trim()}</span>
+                    <button class="btn btn-secondary btn-sm download-student-file" 
+                            data-submission-id="${submissionId}" 
+                            data-filename="${file.trim()}">
                         Скачать
                     </button>
                 </div>
-            `;
+            `).join('');
         } else {
             filesSection.style.display = 'none';
         }
@@ -1408,6 +1410,15 @@ async function openGradeModal(submissionId) {
         document.getElementById('submission-status').value = submission.status || 'checked';
         document.getElementById('teacher-comment').value = submission.teacher_comment || '';
         
+        // Добавляем обработчики для кнопок скачивания
+        document.querySelectorAll('.download-student-file').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const submissionId = this.getAttribute('data-submission-id');
+                const filename = this.getAttribute('data-filename');
+                downloadStudentFile(submissionId, filename);
+            });
+        });
+        
         // Показываем модальное окно
         document.getElementById('grade-submission-modal').style.display = 'block';
         
@@ -1433,6 +1444,31 @@ async function getTeacherSubmissions() {
     } catch (error) {
         console.error('Ошибка получения работ:', error);
         return [];
+    }
+}
+
+// Функция для скачивания файлов студента
+async function downloadStudentFile(submissionId, filename) {
+    try {
+        showAlert(`Загрузка файла: ${filename}`, 'info');
+        
+        // В реальном приложении здесь будет запрос к API для скачивания файла
+        // Сейчас создаем временную ссылку для демонстрации
+        const blob = new Blob([`Это демонстрационный файл студента: ${filename}\n\nСодержимое файла, отправленного студентом.`], {
+            type: 'text/plain'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `student_${filename}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error('❌ Ошибка скачивания файла студента:', error);
+        showAlert('Ошибка скачивания файла: ' + error.message, 'error');
     }
 }
 

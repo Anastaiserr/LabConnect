@@ -487,12 +487,25 @@ function showCourseLabsModal(courseId, labs) {
                                     </span>
                                 </div>
                                 <div class="lab-meta">
+                                    <span><strong>Начало:</strong> ${formatDateTime(lab.start_date)}</span>
                                     <span><strong>Дедлайн:</strong> ${formatDateTime(lab.deadline)}</span>
                                     <span><strong>Макс. балл:</strong> ${lab.max_score}</span>
                                 </div>
                                 <div class="lab-description">
                                     <p>${lab.description}</p>
                                 </div>
+                                ${lab.requirements ? `
+                                    <div class="lab-requirements">
+                                        <h5>Требования:</h5>
+                                        <p>${lab.requirements}</p>
+                                    </div>
+                                ` : ''}
+                                ${lab.template_code ? `
+                                    <div class="lab-template">
+                                        <h5>Шаблон кода:</h5>
+                                        <pre><code>${lab.template_code}</code></pre>
+                                    </div>
+                                ` : ''}
                                 <div class="lab-actions">
                                     <button class="btn btn-primary btn-sm start-lab" data-lab-id="${lab.id}">
                                         Приступить к выполнению
@@ -531,65 +544,189 @@ function showCourseLabsModal(courseId, labs) {
 }
 
 // Модальное окно выполнения лабораторной работы
-function openLabWorkModal(labId) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'block';
-    
-    modal.innerHTML = `
-        <div class="modal-content large">
-            <div class="modal-header">
-                <h3>Выполнение лабораторной работы</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="lab-submit-form">
-                    <input type="hidden" id="lab-id" value="${labId}">
-                    
-                    <div class="form-group">
-                        <label for="lab-files">Прикрепить файлы</label>
-                        <input type="file" id="lab-files" name="lab-files" class="form-control" multiple 
-                               accept=".pdf,.doc,.docx,.zip,.rar,.txt,.cpp,.java,.py,.html,.css,.js,.php">
-                        <small class="form-text">Можно прикрепить несколько файлов</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="lab-code">Код (если требуется)</label>
-                        <textarea id="lab-code" name="lab-code" class="form-control" rows="10" 
-                                  placeholder="Вставьте ваш код здесь..."></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="lab-comment">Комментарий к работе</label>
-                        <textarea id="lab-comment" name="lab-comment" class="form-control" rows="4" 
-                                  placeholder="Опишите особенности вашего решения..."></textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Отправить на проверку</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Обработчики событий
-    const form = modal.querySelector('#lab-submit-form');
-    const cancelBtn = modal.querySelector('.cancel-btn');
-    const closeBtn = modal.querySelector('.close');
-    
-    form.addEventListener('submit', handleLabSubmission);
-    cancelBtn.addEventListener('click', () => modal.remove());
-    closeBtn.addEventListener('click', () => modal.remove());
-    
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            modal.remove();
+async function openLabWorkModal(labId) {
+    try {
+        // Загружаем информацию о лабораторной работе
+        const response = await fetch(`/api/labs/${labId}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки информации о лабораторной работе');
         }
-    });
+        
+        const result = await response.json();
+        const lab = result.lab;
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+            <div class="modal-content large">
+                <div class="modal-header">
+                    <h3>${lab.title}</h3>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="lab-info-section">
+                        <h4>Информация о лабораторной работе</h4>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <label>Дедлайн:</label>
+                                <span>${formatDateTime(lab.deadline)}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Максимальный балл:</label>
+                                <span>${lab.max_score}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Статус:</label>
+                                <span class="status status-${getLabStatus(lab)}">${getLabStatusText(lab)}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="lab-description">
+                            <h5>Описание:</h5>
+                            <p>${lab.description}</p>
+                        </div>
+                        
+                        ${lab.requirements ? `
+                            <div class="lab-requirements">
+                                <h5>Требования к работе:</h5>
+                                <p>${lab.requirements}</p>
+                            </div>
+                        ` : ''}
+                        
+                        ${lab.template_code ? `
+                            <div class="lab-template">
+                                <h5>Шаблон кода:</h5>
+                                <pre><code class="language-javascript">${lab.template_code}</code></pre>
+                                <button class="btn btn-secondary btn-sm copy-template" data-code="${escapeHtml(lab.template_code)}">
+                                    Копировать шаблон
+                                </button>
+                            </div>
+                        ` : ''}
+                        
+                        ${lab.attached_files ? `
+                            <div class="lab-files">
+                                <h5>Файлы преподавателя:</h5>
+                                <div class="files-list">
+                                    ${lab.attached_files.split(',').map(file => `
+                                        <div class="file-item">
+                                            <span class="file-icon">📎</span>
+                                            <span class="file-name">${file.trim()}</span>
+                                            <button class="btn btn-secondary btn-sm download-file" 
+                                                    data-filename="${file.trim()}" 
+                                                    data-lab-id="${labId}">
+                                                Скачать
+                                            </button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <hr>
+                    
+                    <form id="lab-submit-form">
+                        <input type="hidden" id="lab-id" value="${labId}">
+                        
+                        <div class="form-group">
+                            <label for="lab-files">Прикрепить файлы с решением *</label>
+                            <input type="file" id="lab-files" name="lab-files" class="form-control" multiple 
+                                   accept=".pdf,.doc,.docx,.zip,.rar,.txt,.cpp,.java,.py,.html,.css,.js,.php,.c,.h,.cs,.sql,.xml,.json">
+                            <small class="form-text">Поддерживаемые форматы: PDF, Word, архив, текстовые файлы, код</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="lab-code">Код решения (если требуется)</label>
+                            <textarea id="lab-code" name="lab-code" class="form-control" rows="10" 
+                                      placeholder="Вставьте ваш код здесь..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="lab-comment">Комментарий к работе</label>
+                            <textarea id="lab-comment" name="lab-comment" class="form-control" rows="4" 
+                                      placeholder="Опишите особенности вашего решения, возникшие проблемы..."></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Отправить на проверку</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Обработчики событий
+        const form = modal.querySelector('#lab-submit-form');
+        const cancelBtn = modal.querySelector('.cancel-btn');
+        const closeBtn = modal.querySelector('.close');
+        
+        form.addEventListener('submit', handleLabSubmission);
+        cancelBtn.addEventListener('click', () => modal.remove());
+        closeBtn.addEventListener('click', () => modal.remove());
+        
+        // Обработчик копирования шаблона
+        const copyBtn = modal.querySelector('.copy-template');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                const code = this.getAttribute('data-code');
+                navigator.clipboard.writeText(code).then(() => {
+                    showAlert('Шаблон скопирован в буфер обмена', 'success');
+                });
+            });
+        }
+        
+        // Обработчики скачивания файлов преподавателя
+        modal.querySelectorAll('.download-file').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filename = this.getAttribute('data-filename');
+                const labId = this.getAttribute('data-lab-id');
+                downloadTeacherFile(labId, filename);
+            });
+        });
+        
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                modal.remove();
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Ошибка открытия лабораторной работы:', error);
+        showAlert('Ошибка загрузки лабораторной работы: ' + error.message, 'error');
+    }
+}
+
+// Скачивание файла преподавателя
+async function downloadTeacherFile(labId, filename) {
+    try {
+        showAlert(`Загрузка файла: ${filename}`, 'info');
+        
+        // В реальном приложении здесь будет запрос к API для скачивания файла
+        // Сейчас создаем временную ссылку для демонстрации
+        const blob = new Blob([`Это демонстрационный файл: ${filename}\n\nСодержимое файла преподавателя для лабораторной работы.`], {
+            type: 'text/plain'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error('❌ Ошибка скачивания файла:', error);
+        showAlert('Ошибка скачивания файла: ' + error.message, 'error');
+    }
 }
 
 // Обработка отправки лабораторной работы
@@ -601,9 +738,9 @@ async function handleLabSubmission(e) {
     const comment = document.getElementById('lab-comment').value;
     const filesInput = document.getElementById('lab-files');
     
-    // Проверяем, что что-то прикреплено
-    if (filesInput.files.length === 0 && !code.trim()) {
-        showAlert('Пожалуйста, прикрепите файлы или введите код', 'error');
+    // Проверяем, что прикреплены файлы
+    if (filesInput.files.length === 0) {
+        showAlert('Пожалуйста, прикрепите файлы с решением', 'error');
         return;
     }
     
@@ -755,7 +892,7 @@ function initCalendar() {
     renderCalendar();
 }
 
-// Вспомогательные функции для статусов
+// Вспомогательные функции
 function getLabStatus(lab) {
     if (!lab.start_date || !lab.deadline) return 'active';
     
@@ -805,6 +942,15 @@ function formatDate(dateString) {
     } catch (e) {
         return 'Неверная дата';
     }
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // Инициализация модальных окон
