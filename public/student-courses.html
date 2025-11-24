@@ -39,7 +39,12 @@
                         <input type="text" id="course-search" class="form-control" 
                                placeholder="Введите название курса, дисциплину или преподавателя...">
                         <button class="btn btn-primary" id="search-btn">Поиск</button>
-                        <button class="btn btn-secondary" id="show-all-btn">Показать все курсы</button>
+                    </div>
+                    <div class="search-actions">
+                        <button class="btn btn-outline" id="show-all-btn" onclick="loadAvailableCourses()">
+                            🔍 Показать все курсы
+                        </button>
+                        <small class="search-hint">Или начните вводить текст для поиска</small>
                     </div>
                 </div>
 

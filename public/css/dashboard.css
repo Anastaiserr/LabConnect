@@ -1755,3 +1755,27 @@ hr {
 .no-courses strong {
     color: #333;
 }
+
+.search-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.search-hint {
+    color: #666;
+    font-style: italic;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid #3498db;
+    color: #3498db;
+}
+
+.btn-outline:hover {
+    background: #3498db;
+    color: white;
+}

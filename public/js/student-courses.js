@@ -50,7 +50,7 @@ async function loadStudentData() {
     }
 }
 
-// Загрузка доступных курсов
+// Загрузка доступных курсов через поиск
 async function loadAvailableCourses() {
     try {
         const container = document.getElementById('available-courses-list');
@@ -58,22 +58,49 @@ async function loadAvailableCourses() {
         
         container.innerHTML = '<div class="loading">Загрузка доступных курсов...</div>';
         
-        console.log('🔄 Запрос всех курсов...');
-        const response = await fetch('/api/courses/all', {
+        console.log('🔄 Загрузка курсов через поиск...');
+        
+        // Используем поиск с пустым запросом
+        const response = await fetch(`/api/courses/search?query=`, {
             credentials: 'include'
         });
         
-        console.log('📊 Статус ответа:', response.status);
+        console.log('📊 Статус ответа поиска:', response.status);
         
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Ответ сервера:', result);
-            console.log('📊 Всего курсов:', result.total);
-            console.log('📊 Доступных курсов:', result.available);
-            console.log('📊 Список курсов:', result.courses);
+            console.log('✅ Получены курсы через поиск:', result.courses?.length || 0);
             
             if (result.courses && result.courses.length > 0) {
-                displayAvailableCourses(result.courses);
+                // Получаем мои курсы для фильтрации
+                const myCoursesResponse = await fetch('/api/student/courses', {
+                    credentials: 'include'
+                });
+                
+                let myCourseIds = [];
+                if (myCoursesResponse.ok) {
+                    const myCoursesResult = await myCoursesResponse.json();
+                    myCourseIds = myCoursesResult.courses?.map(c => c.id) || [];
+                }
+                
+                // Фильтруем - оставляем только незаписанные курсы
+                const availableCourses = result.courses.filter(course => 
+                    !myCourseIds.includes(course.id)
+                );
+                
+                console.log('🎯 Доступные курсы после фильтрации:', availableCourses.length);
+                
+                if (availableCourses.length > 0) {
+                    displayAvailableCourses(availableCourses);
+                } else {
+                    container.innerHTML = `
+                        <div class="no-courses">
+                            <p>Вы уже записаны на все доступные курсы</p>
+                            <p>Всего курсов в системе: ${result.courses.length}</p>
+                            <p>Новые курсы появятся позже</p>
+                        </div>
+                    `;
+                }
             } else {
                 container.innerHTML = `
                     <div class="no-courses">
@@ -84,8 +111,8 @@ async function loadAvailableCourses() {
             }
         } else {
             const errorText = await response.text();
-            console.error('❌ Ошибка сервера:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}`);
+            console.error('❌ Ошибка поиска:', errorText);
+            throw new Error('Не удалось загрузить список курсов');
         }
     } catch (error) {
         console.error('❌ Ошибка загрузки доступных курсов:', error);
@@ -93,10 +120,12 @@ async function loadAvailableCourses() {
         if (container) {
             container.innerHTML = `
                 <div class="error-message">
-                    <h4>Ошибка загрузки доступных курсов</h4>
+                    <h4>Не удалось загрузить список курсов</h4>
                     <p>${error.message}</p>
-                    <p>Попробуйте обновить страницу</p>
-                    <button class="btn btn-secondary" onclick="loadAvailableCourses()">Повторить попытку</button>
+                    <p>Попробуйте использовать поиск выше</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('course-search').focus()">
+                        Использовать поиск
+                    </button>
                 </div>
             `;
         }
@@ -294,26 +323,73 @@ function addMyCoursesEventHandlers() {
 async function searchCourses() {
     const query = document.getElementById('course-search').value.trim();
     
-    if (!query) {
-        showAlert('Введите поисковый запрос', 'warning');
-        return;
-    }
-    
     try {
+        const container = document.getElementById('available-courses-list');
+        if (!container) return;
+        
+        container.innerHTML = '<div class="loading">Поиск курсов...</div>';
+        
         const response = await fetch(`/api/courses/search?query=${encodeURIComponent(query)}`, {
             credentials: 'include'
         });
         
         if (response.ok) {
             const result = await response.json();
-            displaySearchResults(result.courses || []);
+            
+            if (result.courses && result.courses.length > 0) {
+                // Фильтруем уже записанные курсы
+                const myCoursesResponse = await fetch('/api/student/courses', {
+                    credentials: 'include'
+                });
+                
+                let myCourseIds = [];
+                if (myCoursesResponse.ok) {
+                    const myCoursesResult = await myCoursesResponse.json();
+                    myCourseIds = myCoursesResult.courses?.map(c => c.id) || [];
+                }
+                
+                const availableCourses = result.courses.filter(course => 
+                    !myCourseIds.includes(course.id)
+                );
+                
+                if (availableCourses.length > 0) {
+                    displayAvailableCourses(availableCourses);
+                } else {
+                    container.innerHTML = `
+                        <div class="no-courses">
+                            <p>По запросу "${query}" найдены курсы, но вы уже на них записаны</p>
+                            <button class="btn btn-secondary" onclick="loadAvailableCourses()">
+                                Показать все доступные курсы
+                            </button>
+                        </div>
+                    `;
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="no-courses">
+                        <p>По запросу "${query}" курсы не найдены</p>
+                        <button class="btn btn-secondary" onclick="loadAvailableCourses()">
+                            Показать все курсы
+                        </button>
+                    </div>
+                `;
+            }
         } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Ошибка поиска');
+            throw new Error('Ошибка поиска');
         }
     } catch (error) {
         console.error('❌ Ошибка поиска курсов:', error);
-        showAlert('Ошибка поиска курсов: ' + error.message, 'error');
+        const container = document.getElementById('available-courses-list');
+        if (container) {
+            container.innerHTML = `
+                <div class="error-message">
+                    <p>Ошибка поиска курсов: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="loadAvailableCourses()">
+                        Попробовать снова
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
