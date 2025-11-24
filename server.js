@@ -1194,7 +1194,7 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
 });
 
 // Функция для исправления существующих данных
-function fixExistingFileNames() {
+/*function fixExistingFileNames() {
   console.log('🔄 Исправление имен файлов в существующих данных...');
   
   let fixedCount = 0;
@@ -1254,10 +1254,10 @@ function fixExistingFileNames() {
   db.save();
   console.log(`✅ Исправлено ${fixedCount} имен файлов!`);
   return fixedCount;
-}
+}*/
 
 // Временный эндпоинт для исправления имен файлов
-app.post('/api/fix-filenames', (req, res) => {
+/*app.post('/api/fix-filenames', (req, res) => {
   try {
       console.log('🔄 Запуск исправления имен файлов по запросу...');
       
@@ -1273,7 +1273,7 @@ app.post('/api/fix-filenames', (req, res) => {
       console.error('❌ Ошибка при исправлении имен файлов:', error);
       res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
   }
-});
+});*/
 
 // Принудительная запись студента на курс (для преподавателя)
 app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
