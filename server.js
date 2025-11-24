@@ -200,8 +200,10 @@ class JSONDatabase {
     return this.data.courses.filter(c => c.teacher_id == teacherId);
   }
 
+  // В классе JSONDatabase
   getAllCourses() {
-    return this.data.courses;
+  console.log('📂 Получение всех курсов из базы:', this.data.courses);
+  return this.data.courses || [];
   }
 
   findCourseById(id) {
@@ -1276,6 +1278,7 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
 });*/
 
 // Получение всех курсов (для студентов)
+// Получение всех курсов (для студентов)
 app.get('/api/courses/all', requireAuth, async (req, res) => {
   try {
       console.log('📚 Запрос всех курсов для студента:', req.session.user.id);
@@ -1284,15 +1287,27 @@ app.get('/api/courses/all', requireAuth, async (req, res) => {
           return res.status(403).json({ error: 'Доступ только для студентов' });
       }
 
+      // Получаем все курсы
       const allCourses = db.getAllCourses();
-      console.log('📊 Найдено курсов:', allCourses.length);
+      console.log('📊 Все курсы в базе:', allCourses);
+      console.log('📊 Количество курсов:', allCourses.length);
+      
+      // Получаем курсы студента
+      const studentCourses = db.getStudentCourses(req.session.user.id);
+      const studentCourseIds = studentCourses.map(c => c.id);
+      console.log('📊 Курсы студента:', studentCourseIds);
       
       // Добавляем информацию о преподавателе и проверяем, записан ли студент
       const coursesWithDetails = allCourses.map(course => {
           const teacher = db.findUserById(course.teacher_id);
-          const isEnrolled = db.data.enrollments ? db.data.enrollments.some(
-              e => e.course_id == course.id && e.student_id == req.session.user.id
-          ) : false;
+          const isEnrolled = studentCourseIds.includes(course.id);
+          
+          console.log('🎯 Курс:', {
+              id: course.id,
+              name: course.name,
+              teacher_id: course.teacher_id,
+              isEnrolled: isEnrolled
+          });
           
           return {
               ...course,
@@ -1303,7 +1318,12 @@ app.get('/api/courses/all', requireAuth, async (req, res) => {
       });
       
       console.log('✅ Отправляем курсы:', coursesWithDetails.length);
-      res.json({ courses: coursesWithDetails });
+      res.json({ 
+          success: true,
+          courses: coursesWithDetails,
+          total: coursesWithDetails.length,
+          available: coursesWithDetails.filter(c => !c.is_enrolled).length
+      });
       
   } catch (error) {
       console.error('❌ Ошибка получения курсов:', error);

@@ -1724,3 +1724,34 @@ hr {
     color: #555;
     margin-bottom: 0.5rem;
 }
+
+.course-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.course-teacher {
+    font-size: 0.8rem;
+    color: #666;
+    background: #e3f2fd;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.no-courses {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #ddd;
+}
+
+.no-courses p {
+    margin-bottom: 1rem;
+}
+
+.no-courses strong {
+    color: #333;
+}
