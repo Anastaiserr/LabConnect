@@ -852,34 +852,46 @@ app.get('/api/student/courses', requireAuth, async (req, res) => {
   }
 });
 
-// Поиск курсов
+// Поиск курсов - ИСПРАВЛЕННАЯ ВЕРСИЯ
 app.get('/api/courses/search', requireAuth, async (req, res) => {
   if (req.session.user.role !== 'student') {
-    return res.status(403).json({ error: 'Доступ только для студентов' });
+      return res.status(403).json({ error: 'Доступ только для студентов' });
   }
 
   try {
-    const { query } = req.query;
-    if (!query) {
-      return res.json({ courses: [] });
-    }
+      const { query } = req.query;
+      console.log('🔍 Поиск курсов по запросу:', query);
+      
+      let courses = [];
+      
+      if (!query || query.trim() === '') {
+          // Если запрос пустой - возвращаем ВСЕ курсы
+          courses = db.getAllCourses();
+          console.log('📂 Возвращаем все курсы:', courses.length);
+      } else {
+          // Если есть запрос - ищем по нему
+          courses = db.searchCourses(query);
+          console.log('🔎 Найдено курсов по запросу:', courses.length);
+      }
 
-    const courses = db.searchCourses(query);
-    
-    // Добавляем информацию о преподавателе
-    const coursesWithTeachers = courses.map(course => {
-      const teacher = db.findUserById(course.teacher_id);
-      return {
-        ...course,
-        teacher_first_name: teacher?.firstName || 'Неизвестно',
-        teacher_last_name: teacher?.lastName || 'Неизвестно'
-      };
-    });
-    
-    res.json({ courses: coursesWithTeachers });
+      // Добавляем информацию о преподавателе
+      const coursesWithTeachers = courses.map(course => {
+          const teacher = db.findUserById(course.teacher_id);
+          return {
+              ...course,
+              teacher_first_name: teacher?.firstName || 'Неизвестно',
+              teacher_last_name: teacher?.lastName || 'Неизвестно'
+          };
+      });
+      
+      res.json({ 
+          courses: coursesWithTeachers,
+          total: coursesWithTeachers.length,
+          query: query || 'all'
+      });
   } catch (error) {
-    console.error('Ошибка поиска курсов:', error);
-    res.status(500).json({ error: 'Ошибка базы данных' });
+      console.error('❌ Ошибка поиска курсов:', error);
+      res.status(500).json({ error: 'Ошибка базы данных' });
   }
 });
 
