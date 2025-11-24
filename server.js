@@ -24,7 +24,14 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     // Сохраняем оригинальное имя файла с timestamp для уникальности
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    
+    // Получаем расширение файла
+    const ext = path.extname(file.originalname);
+    
+    // Создаем безопасное имя файла
+    const safeName = uniqueSuffix + ext;
+    
+    cb(null, safeName);
   }
 });
 
@@ -32,6 +39,10 @@ const upload = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB лимит
+  },
+  fileFilter: function (req, file, cb) {
+    // Разрешаем все типы файлов
+    cb(null, true);
   }
 });
 
@@ -707,27 +718,37 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
 
   const { name, description, course_id, template_code, start_date, deadline, max_score, requirements } = req.body;
 
-  console.log('📥 Полученные данные:', {
-      name, description, course_id, template_code, start_date, deadline, max_score, requirements,
-      files: req.files ? req.files.length : 0
-  });
-
   if (!name || !description || !course_id) {
       return res.status(400).json({ 
-          error: 'Название, описание и ID курса обязательны',
-          received: { name, description, course_id }
+          error: 'Название, описание и ID курса обязательны'
       });
   }
 
   try {
-      // Сохраняем полную информацию о загруженных файлах
-      const attached_files_info = req.files ? req.files.map(file => ({
-          filename: file.filename,
-          originalname: file.originalname,
-          path: file.path,
-          size: file.size,
-          mimetype: file.mimetype
-      })) : [];
+      // Правильно обрабатываем русские названия файлов
+      const attached_files_info = req.files ? req.files.map(file => {
+          // Декодируем оригинальное имя файла из UTF-8
+          let originalname = file.originalname;
+          
+          // Если имя файла содержит URL-encoded символы, декодируем их
+          try {
+              originalname = decodeURIComponent(originalname);
+          } catch (e) {
+              // Если декодирование не удалось, используем оригинальное имя
+              console.log('Не удалось декодировать имя файла:', originalname);
+          }
+          
+          // Заменяем проблемные символы
+          originalname = originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
+          
+          return {
+              filename: file.filename,
+              originalname: originalname,
+              path: file.path,
+              size: file.size,
+              mimetype: file.mimetype
+          };
+      }) : [];
 
       const lab = db.createLab({
           title: name,
@@ -740,10 +761,8 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
           requirements: requirements || null,
           attached_files: attached_files_info.map(f => f.originalname).join(','),
           file_paths: attached_files_info.map(f => f.path).join(','),
-          attached_files_info: attached_files_info // Сохраняем полную информацию
+          attached_files_info: attached_files_info
       });
-      
-      console.log('✅ Лабораторная работа создана:', lab);
       
       res.json({ 
           success: true, 
@@ -1220,14 +1239,28 @@ app.post('/api/labs/:id/submit', requireAuth, upload.array('files', 10), async (
       const labId = req.params.id;
       const { code, comment } = req.body;
       
-      // Сохраняем полную информацию о загруженных файлах студента
-      const student_files_info = req.files ? req.files.map(file => ({
-          filename: file.filename,
-          originalname: file.originalname,
-          path: file.path,
-          size: file.size,
-          mimetype: file.mimetype
-      })) : [];
+      // Правильно обрабатываем русские названия файлов
+      const student_files_info = req.files ? req.files.map(file => {
+          let originalname = file.originalname;
+          
+          // Декодируем имя файла
+          try {
+              originalname = decodeURIComponent(originalname);
+          } catch (e) {
+              console.log('Не удалось декодировать имя файла студента:', originalname);
+          }
+          
+          // Заменяем проблемные символы
+          originalname = originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
+          
+          return {
+              filename: file.filename,
+              originalname: originalname,
+              path: file.path,
+              size: file.size,
+              mimetype: file.mimetype
+          };
+      }) : [];
 
       if (student_files_info.length === 0 && !code) {
           return res.status(400).json({ error: 'Пожалуйста, прикрепите файлы или введите код' });
@@ -1238,7 +1271,7 @@ app.post('/api/labs/:id/submit', requireAuth, upload.array('files', 10), async (
           student_id: req.session.user.id,
           files: student_files_info.map(f => f.originalname).join(','),
           file_paths: student_files_info.map(f => f.path).join(','),
-          student_files_info: student_files_info, // Сохраняем полную информацию
+          student_files_info: student_files_info,
           code: code,
           comment: comment
       });
@@ -1499,14 +1532,12 @@ app.get('/api/labs/:id/files/:filename', requireAuth, async (req, res) => {
       
       const lab = db.data.labs.find(l => l.id == labId);
       if (!lab) {
-          console.log('❌ Лабораторная работа не найдена:', labId);
           return res.status(404).json({ error: 'Лабораторная работа не найдена' });
       }
 
       // Проверяем доступ
       const course = db.findCourseById(lab.course_id);
       if (!course) {
-          console.log('❌ Курс не найден:', lab.course_id);
           return res.status(404).json({ error: 'Курс не найден' });
       }
 
@@ -1516,7 +1547,6 @@ app.get('/api/labs/:id/files/:filename', requireAuth, async (req, res) => {
               e => e.course_id == course.id && e.student_id == req.session.user.id
           );
           if (!isEnrolled) {
-              console.log('❌ Студент не записан на курс:', req.session.user.id);
               return res.status(403).json({ error: 'Доступ запрещен' });
           }
       }
@@ -1529,45 +1559,23 @@ app.get('/api/labs/:id/files/:filename', requireAuth, async (req, res) => {
           );
       }
 
-      // Если не нашли в attached_files_info, пробуем найти по старым полям
-      if (!fileInfo && lab.file_paths) {
-          const fileIndex = lab.attached_files.split(',').findIndex(f => f.trim() === filename);
-          if (fileIndex !== -1) {
-              const filePath = lab.file_paths.split(',')[fileIndex];
-              if (filePath) {
-                  fileInfo = {
-                      originalname: filename,
-                      filename: filePath,
-                      path: filePath
-                  };
-              }
-          }
-      }
-
       if (!fileInfo) {
-          console.log('❌ Файл не найден в базе данных:', filename);
-          console.log('Доступные файлы:', lab.attached_files_info);
           return res.status(404).json({ error: 'Файл не найден' });
       }
 
-      // Используем path из fileInfo или filename
       const filePath = fileInfo.path || fileInfo.filename;
       
-      if (!filePath) {
-          console.log('❌ Путь к файлу не указан');
-          return res.status(404).json({ error: 'Путь к файлу не указан' });
-      }
-
-      // Проверяем существование файла
-      if (!fs.existsSync(filePath)) {
-          console.log('❌ Файл не найден на сервере:', filePath);
+      if (!filePath || !fs.existsSync(filePath)) {
           return res.status(404).json({ error: 'Файл не найден на сервере' });
       }
 
       console.log('✅ Отправка файла:', filePath);
       
-      // Отправляем файл
-      res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.originalname}"`);
+      // Правильные заголовки для русских названий
+      const encodedFilename = encodeURIComponent(fileInfo.originalname);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
+      res.setHeader('Content-Type', fileInfo.mimetype || 'application/octet-stream');
+      
       res.sendFile(path.resolve(filePath));
       
   } catch (error) {
@@ -1586,7 +1594,6 @@ app.get('/api/submissions/:id/files/:filename', requireAuth, async (req, res) =>
       
       const submission = db.data.submissions.find(s => s.id == submissionId);
       if (!submission) {
-          console.log('❌ Работа не найдена:', submissionId);
           return res.status(404).json({ error: 'Работа не найдена' });
       }
 
@@ -1603,42 +1610,30 @@ app.get('/api/submissions/:id/files/:filename', requireAuth, async (req, res) =>
       }
 
       // Находим файл студента
-      let filePath = null;
-      
-      // Пробуем найти через student_files_info
+      let fileInfo = null;
       if (submission.student_files_info && submission.student_files_info.length > 0) {
-          const fileInfo = submission.student_files_info.find(f => 
+          fileInfo = submission.student_files_info.find(f => 
               f.originalname === filename
           );
-          if (fileInfo) {
-              filePath = fileInfo.path || fileInfo.filename;
-          }
-      }
-      
-      // Если не нашли, пробуем старый способ
-      if (!filePath && submission.files && submission.file_paths) {
-          const fileIndex = submission.files.split(',').findIndex(f => f.trim() === filename);
-          if (fileIndex !== -1) {
-              filePath = submission.file_paths.split(',')[fileIndex];
-          }
       }
 
-      if (!filePath) {
-          console.log('❌ Файл не найден в submission:', filename);
-          console.log('Доступные файлы:', submission.student_files_info);
+      if (!fileInfo) {
           return res.status(404).json({ error: 'Файл не найден' });
       }
 
-      // Проверяем существование файла
-      if (!fs.existsSync(filePath)) {
-          console.log('❌ Файл не найден на сервере:', filePath);
+      const filePath = fileInfo.path || fileInfo.filename;
+      
+      if (!filePath || !fs.existsSync(filePath)) {
           return res.status(404).json({ error: 'Файл не найден на сервере' });
       }
 
       console.log('✅ Отправка файла студента:', filePath);
       
-      // Отправляем файл
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // Правильные заголовки для русских названий
+      const encodedFilename = encodeURIComponent(fileInfo.originalname);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
+      res.setHeader('Content-Type', fileInfo.mimetype || 'application/octet-stream');
+      
       res.sendFile(path.resolve(filePath));
       
   } catch (error) {
