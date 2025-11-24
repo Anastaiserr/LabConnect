@@ -707,6 +707,8 @@ async function openLabWorkModal(labId) {
 // Скачивание файла преподавателя
 async function downloadTeacherFile(labId, filename) {
     try {
+        console.log('📥 Скачивание файла преподавателя:', { labId, filename });
+        
         const response = await fetch(`/api/labs/${labId}/files/${encodeURIComponent(filename)}`, {
             credentials: 'include'
         });
@@ -722,6 +724,8 @@ async function downloadTeacherFile(labId, filename) {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            
+            showAlert('Файл успешно скачан', 'success');
         } else {
             const errorData = await response.json();
             throw new Error(errorData.error);

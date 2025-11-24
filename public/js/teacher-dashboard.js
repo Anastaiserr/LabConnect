@@ -1426,7 +1426,7 @@ async function openGradeModal(submissionId) {
         document.getElementById('submission-status').value = submission.status || 'checked';
         document.getElementById('teacher-comment').value = submission.teacher_comment || '';
         
-        // Добавляем обработчики для кнопок скачивания
+        // Добавляем обработчики для кнопок скачивания файлов студента
         document.querySelectorAll('.download-student-file').forEach(btn => {
             btn.addEventListener('click', function() {
                 const submissionId = this.getAttribute('data-submission-id');
@@ -1466,6 +1466,8 @@ async function getTeacherSubmissions() {
 // Функция для скачивания файлов студента
 async function downloadStudentFile(submissionId, filename) {
     try {
+        console.log('📥 Скачивание файла студента:', { submissionId, filename });
+        
         const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
             credentials: 'include'
         });
@@ -1481,6 +1483,8 @@ async function downloadStudentFile(submissionId, filename) {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            
+            showAlert('Файл успешно скачан', 'success');
         } else {
             const errorData = await response.json();
             throw new Error(errorData.error);
