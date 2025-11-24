@@ -1451,13 +1451,20 @@ async function getTeacherSubmissions() {
 // Функция для скачивания файлов студента
 async function downloadStudentFile(submissionId, filename) {
     try {
+      console.log('🔄 Скачивание файла студента:', { submissionId, filename });
+      
       const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
         credentials: 'include'
       });
       
       if (response.ok) {
-        // Создаем blob и скачиваем файл
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1466,13 +1473,22 @@ async function downloadStudentFile(submissionId, filename) {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+        
+        console.log('✅ Файл студента успешно скачан');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error);
+        const errorText = await response.text();
+        console.error('❌ Ошибка сервера:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       console.error('❌ Ошибка скачивания файла студента:', error);
-      showAlert('Ошибка скачивания файла: ' + error.message, 'error');
+      showAlert('Ошибка скачивания файла студента: ' + error.message, 'error');
     }
 }
 

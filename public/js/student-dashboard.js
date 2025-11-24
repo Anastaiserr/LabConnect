@@ -707,13 +707,20 @@ async function openLabWorkModal(labId) {
 // Скачивание файла преподавателя
 async function downloadTeacherFile(labId, filename) {
     try {
+      console.log('🔄 Скачивание файла преподавателя:', { labId, filename });
+      
       const response = await fetch(`/api/labs/${labId}/files/${encodeURIComponent(filename)}`, {
         credentials: 'include'
       });
       
       if (response.ok) {
-        // Создаем blob и скачиваем файл
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -722,15 +729,24 @@ async function downloadTeacherFile(labId, filename) {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+        
+        console.log('✅ Файл успешно скачан');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error);
+        const errorText = await response.text();
+        console.error('❌ Ошибка сервера:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       console.error('❌ Ошибка скачивания файла преподавателя:', error);
       showAlert('Ошибка скачивания файла: ' + error.message, 'error');
     }
-  }
+}
 
 // Обработка отправки лабораторной работы
 async function handleLabSubmission(e) {
