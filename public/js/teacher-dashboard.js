@@ -1341,50 +1341,62 @@ function addSubmissionEventHandlers() {
 // Открытие модального окна проверки работы
 async function openGradeModal(submissionId) {
     try {
-        // Загружаем полные данные работы
-        const response = await fetch(`/api/submissions/${submissionId}`, {
-            credentials: 'include'
-        });
-        
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки данных работы');
-        }
-        
-        const result = await response.json();
-        const submission = result.submission;
-        
-        if (!submission) {
-            throw new Error('Данные работы не найдены');
-        }
-        
-        // Заполняем модальное окно
-        document.getElementById('grade-submission-id').value = submissionId;
-        document.getElementById('grade-submission-title').textContent = `Проверка: ${submission.lab_title}`;
-        document.getElementById('submission-student-name').textContent = submission.student_name;
-        document.getElementById('submission-student-group').textContent = submission.student_group || 'Не указана';
-        document.getElementById('submission-lab-title').textContent = submission.lab_title;
-        document.getElementById('submission-course-name').textContent = submission.course_name;
-        document.getElementById('submission-date').textContent = formatDateTime(submission.submitted_at);
-        
-        // Показываем файлы студента с возможностью скачивания
-        const filesSection = document.getElementById('submission-files');
-        const filesList = document.getElementById('files-list');
-        if (submission.student_files_info && submission.student_files_info.length > 0) {
-            filesSection.style.display = 'block';
-            filesList.innerHTML = submission.student_files_info.map(file => `
-                <div class="file-item">
-                    <span class="file-icon">📎</span>
-                    <span class="file-name">${file.originalname}</span>
-                    <button class="btn btn-secondary btn-sm download-student-file" 
-                            data-submission-id="${submissionId}" 
-                            data-filename="${file.originalname}">
-                        Скачать
-                    </button>
-                </div>
-            `).join('');
-        } else {
-            filesSection.style.display = 'none';
-        }
+      // Загружаем полные данные работы
+      const response = await fetch(`/api/submissions/${submissionId}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки данных работы');
+      }
+      
+      const result = await response.json();
+      const submission = result.submission;
+      
+      if (!submission) {
+        throw new Error('Данные работы не найдены');
+      }
+  
+      // Загружаем информацию о файлах студента
+      const filesResponse = await fetch(`/api/submissions/${submissionId}/files`, {
+        credentials: 'include'
+      });
+      
+      let studentFiles = [];
+      if (filesResponse.ok) {
+        const filesResult = await filesResponse.json();
+        studentFiles = filesResult.files || [];
+      }
+      
+      // Заполняем модальное окно
+      document.getElementById('grade-submission-id').value = submissionId;
+      document.getElementById('grade-submission-title').textContent = `Проверка: ${submission.lab_title}`;
+      document.getElementById('submission-student-name').textContent = submission.student_name;
+      document.getElementById('submission-student-group').textContent = submission.student_group || 'Не указана';
+      document.getElementById('submission-lab-title').textContent = submission.lab_title;
+      document.getElementById('submission-course-name').textContent = submission.course_name;
+      document.getElementById('submission-date').textContent = formatDateTime(submission.submitted_at);
+      
+      // Показываем файлы студента с возможностью скачивания
+      const filesSection = document.getElementById('submission-files');
+      const filesList = document.getElementById('files-list');
+      if (studentFiles.length > 0) {
+        filesSection.style.display = 'block';
+        filesList.innerHTML = studentFiles.map(file => `
+          <div class="file-item">
+            <span class="file-icon">📎</span>
+            <span class="file-name">${file.originalname} (${formatFileSize(file.size)})</span>
+            <button class="btn btn-secondary btn-sm download-student-file" 
+                    data-submission-id="${submissionId}" 
+                    data-filename="${file.originalname}"
+                    data-filepath="${file.path}">
+              Скачать
+            </button>
+          </div>
+        `).join('');
+      } else {
+        filesSection.style.display = 'none';
+      }
         
         // Показываем код
         const codeSection = document.getElementById('submission-code');
@@ -1429,6 +1441,14 @@ async function openGradeModal(submissionId) {
     }
 }
 
+// Вспомогательная функция для форматирования размера файла
+function formatFileSize(bytes) {
+    if (!bytes) return 'Неизвестно';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
 // Получение списка работ для преподавателя
 async function getTeacherSubmissions() {
     try {
@@ -1449,48 +1469,55 @@ async function getTeacherSubmissions() {
 }
 
 // Функция для скачивания файлов студента
-async function downloadStudentFile(submissionId, filename) {
+async function downloadStudentFile(submissionId, filename, filepath) {
     try {
-      console.log('🔄 Скачивание файла студента:', { submissionId, filename });
+      console.log('🔄 Скачивание файла студента:', { submissionId, filename, filepath });
       
-      const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
+      // Используем filepath если он есть, иначе используем стандартный endpoint
+      if (filepath) {
+        const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
+          credentials: 'include'
+        });
         
-        // Проверяем, что blob не пустой
-        if (blob.size === 0) {
-          throw new Error('Получен пустой файл');
+        if (response.ok) {
+          const blob = await response.blob();
+          downloadBlob(blob, filename);
+        } else {
+          throw new Error('Файл не найден на сервере');
         }
-        
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        console.log('✅ Файл студента успешно скачан');
       } else {
-        const errorText = await response.text();
-        console.error('❌ Ошибка сервера:', errorText);
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          errorData = { error: errorText };
+        // Старый метод для обратной совместимости
+        const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          downloadBlob(blob, filename);
+        } else {
+          throw new Error('Файл не найден');
         }
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       console.error('❌ Ошибка скачивания файла студента:', error);
       showAlert('Ошибка скачивания файла студента: ' + error.message, 'error');
     }
 }
+
+function downloadBlob(blob, filename) {
+    if (blob.size === 0) {
+      throw new Error('Получен пустой файл');
+    }
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
 
 // Оценка работы
 async function gradeSubmission(e) {
