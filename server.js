@@ -17,19 +17,21 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Настройка multer для загрузки файлов
+// Настройка multer для правильной обработки русских имен
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
-    // Сохраняем оригинальное имя файла с timestamp для уникальности
+    // Сохраняем с уникальным именем, но сохраняем оригинальное имя в metadata
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    
-    // Получаем расширение файла
     const ext = path.extname(file.originalname);
-    
-    // Создаем безопасное имя файла
     const safeName = uniqueSuffix + ext;
+    
+    console.log('💾 Сохранение файла:', {
+        original: file.originalname,
+        savedAs: safeName
+    });
     
     cb(null, safeName);
   }
@@ -41,7 +43,8 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB лимит
   },
   fileFilter: function (req, file, cb) {
-    // Разрешаем все типы файлов
+    // Сохраняем оригинальное имя файла
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     cb(null, true);
   }
 });
@@ -507,6 +510,36 @@ function requireAuth(req, res, next) {
   }
 }
 
+// Правильная функция для обработки русских имен файлов
+function normalizeFileName(filename) {
+  if (!filename) return filename;
+  
+  let result = filename;
+  
+  // Декодируем URL-encoded символы
+  try {
+      result = decodeURIComponent(result);
+  } catch (e) {
+      // Если декодирование не удалось, пробуем другие кодировки
+      try {
+          result = Buffer.from(result, 'latin1').toString('utf8');
+      } catch (e2) {
+          console.log('Не удалось декодировать имя файла:', filename);
+      }
+  }
+  
+  // Заменяем ТОЛЬКО запрещенные символы, а не все не-латинские
+  // Запрещенные символы в именах файлов: \ / : * ? " < > |
+  const forbiddenChars = /[\\/:*?"<>|]/g;
+  result = result.replace(forbiddenChars, '_');
+  
+  // Убираем начальные и конечные пробелы и точки
+  result = result.trim();
+  result = result.replace(/^\.+|\.+$/g, '');
+  
+  return result;
+}
+
 // ========== API МАРШРУТЫ ==========
 
 // Регистрация
@@ -727,19 +760,13 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
   try {
       // Правильно обрабатываем русские названия файлов
       const attached_files_info = req.files ? req.files.map(file => {
-          // Декодируем оригинальное имя файла из UTF-8
-          let originalname = file.originalname;
+          const originalname = normalizeFileName(file.originalname);
           
-          // Если имя файла содержит URL-encoded символы, декодируем их
-          try {
-              originalname = decodeURIComponent(originalname);
-          } catch (e) {
-              // Если декодирование не удалось, используем оригинальное имя
-              console.log('Не удалось декодировать имя файла:', originalname);
-          }
-          
-          // Заменяем проблемные символы
-          originalname = originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
+          console.log('📁 Обработка файла:', {
+              original: file.originalname,
+              normalized: originalname,
+              size: file.size
+          });
           
           return {
               filename: file.filename,
@@ -1166,6 +1193,88 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
     }
 });
 
+// Функция для исправления существующих данных
+function fixExistingFileNames() {
+  console.log('🔄 Исправление имен файлов в существующих данных...');
+  
+  let fixedCount = 0;
+  
+  // Исправляем лабораторные работы
+  db.data.labs.forEach(lab => {
+      if (lab.attached_files_info) {
+          lab.attached_files_info.forEach(fileInfo => {
+              if (fileInfo.originalname) {
+                  const oldName = fileInfo.originalname;
+                  const newName = normalizeFileName(oldName);
+                  
+                  if (oldName !== newName) {
+                      fileInfo.originalname = newName;
+                      fixedCount++;
+                      console.log(`✅ Исправлено: "${oldName}" -> "${newName}"`);
+                  }
+              }
+          });
+          
+          // Также обновляем поле attached_files
+          if (lab.attached_files) {
+              const filesArray = lab.attached_files.split(',');
+              const normalizedFiles = filesArray.map(file => normalizeFileName(file.trim()));
+              lab.attached_files = normalizedFiles.join(',');
+          }
+      }
+  });
+  
+  // Исправляем сдачи работ
+  if (db.data.submissions) {
+      db.data.submissions.forEach(submission => {
+          if (submission.student_files_info) {
+              submission.student_files_info.forEach(fileInfo => {
+                  if (fileInfo.originalname) {
+                      const oldName = fileInfo.originalname;
+                      const newName = normalizeFileName(oldName);
+                      
+                      if (oldName !== newName) {
+                          fileInfo.originalname = newName;
+                          fixedCount++;
+                          console.log(`✅ Исправлено студенческое: "${oldName}" -> "${newName}"`);
+                      }
+                  }
+              });
+              
+              // Также обновляем поле files
+              if (submission.files) {
+                  const filesArray = submission.files.split(',');
+                  const normalizedFiles = filesArray.map(file => normalizeFileName(file.trim()));
+                  submission.files = normalizedFiles.join(',');
+              }
+          }
+      });
+  }
+  
+  db.save();
+  console.log(`✅ Исправлено ${fixedCount} имен файлов!`);
+  return fixedCount;
+}
+
+// Временный эндпоинт для исправления имен файлов
+app.post('/api/fix-filenames', (req, res) => {
+  try {
+      console.log('🔄 Запуск исправления имен файлов по запросу...');
+      
+      const fixedCount = fixExistingFileNames();
+      
+      res.json({ 
+          success: true, 
+          message: `Исправлено ${fixedCount} имен файлов`,
+          fixedCount: fixedCount
+      });
+      
+  } catch (error) {
+      console.error('❌ Ошибка при исправлении имен файлов:', error);
+      res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
+  }
+});
+
 // Принудительная запись студента на курс (для преподавателя)
 app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
     try {
@@ -1241,17 +1350,13 @@ app.post('/api/labs/:id/submit', requireAuth, upload.array('files', 10), async (
       
       // Правильно обрабатываем русские названия файлов
       const student_files_info = req.files ? req.files.map(file => {
-          let originalname = file.originalname;
+          const originalname = normalizeFileName(file.originalname);
           
-          // Декодируем имя файла
-          try {
-              originalname = decodeURIComponent(originalname);
-          } catch (e) {
-              console.log('Не удалось декодировать имя файла студента:', originalname);
-          }
-          
-          // Заменяем проблемные символы
-          originalname = originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
+          console.log('📁 Обработка файла студента:', {
+              original: file.originalname,
+              normalized: originalname,
+              size: file.size
+          });
           
           return {
               filename: file.filename,
