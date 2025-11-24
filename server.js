@@ -717,8 +717,7 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
     const attached_files = req.files ? req.files.map(file => ({
       filename: file.filename,
       originalname: file.originalname,
-      path: file.path,
-      size: file.size
+      path: file.path
     })) : [];
 
     const lab = db.createLab({
@@ -730,7 +729,7 @@ app.post('/api/labs', requireAuth, upload.array('files', 10), async (req, res) =
       deadline: deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       max_score: max_score ? parseInt(max_score) : 10,
       requirements: requirements || null,
-      attached_files: JSON.stringify(attached_files), // Сохраняем как JSON
+      attached_files: attached_files.map(f => f.originalname).join(','),
       file_paths: attached_files.map(f => f.path).join(',')
     });
     
@@ -1207,18 +1206,24 @@ app.post('/api/labs/:id/submit', requireAuth, upload.array('files', 10), async (
   }
 
   try {
+    const labId = req.params.id;
+    const { code, comment } = req.body;
+    
     // Сохраняем информацию о загруженных файлах студента
     const student_files = req.files ? req.files.map(file => ({
       filename: file.filename,
       originalname: file.originalname,
-      path: file.path,
-      size: file.size
+      path: file.path
     })) : [];
+
+    if (student_files.length === 0 && !code) {
+      return res.status(400).json({ error: 'Пожалуйста, прикрепите файлы или введите код' });
+    }
 
     const submission = await db.submitLabWork({
       lab_id: labId,
       student_id: req.session.user.id,
-      files: JSON.stringify(student_files), // Сохраняем как JSON
+      files: student_files.map(f => f.originalname).join(','),
       file_paths: student_files.map(f => f.path).join(','),
       code: code,
       comment: comment
@@ -1393,141 +1398,130 @@ app.delete('/api/courses/:courseId/students/:studentId', requireAuth, async (req
     }
 });
 
-// ========== ЭНДПОИНТЫ ДЛЯ ФАЙЛОВ ==========
+// Получение курсов студента с логированием
+app.get('/api/student/courses', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'student') {
+        return res.status(403).json({ error: 'Доступ только для студентов' });
+    }
 
-// Получение информации о лабораторной работе
+    try {
+        const courses = db.getStudentCourses(req.session.user.id);
+        console.log('📊 Курсы студента', req.session.user.id, ':', courses);
+        
+        // Добавляем информацию о преподавателе
+        const coursesWithTeachers = courses.map(course => {
+            const teacher = db.findUserById(course.teacher_id);
+            return {
+                ...course,
+                teacher_first_name: teacher?.firstName || 'Неизвестно',
+                teacher_last_name: teacher?.lastName || 'Неизвестно'
+            };
+        });
+        
+        res.json({ courses: coursesWithTeachers });
+    } catch (error) {
+        console.error('Ошибка получения курсов студента:', error);
+        res.status(500).json({ error: 'Ошибка базы данных' });
+    }
+});
+
+// Получение информации о лабораторной работе с файлами
 app.get('/api/labs/:id', requireAuth, async (req, res) => {
   try {
-    const lab = db.data.labs.find(l => l.id == req.params.id);
+    const labId = req.params.id;
+    const lab = db.data.labs.find(l => l.id == labId);
+    
     if (!lab) {
       return res.status(404).json({ error: 'Лабораторная работа не найдена' });
     }
-    res.json({ lab });
+
+    // Проверяем доступ
+    const course = db.findCourseById(lab.course_id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    // Для студентов проверяем, что они записаны на курс
+    if (req.session.user.role === 'student') {
+      const isEnrolled = db.data.enrollments.some(
+        e => e.course_id == course.id && e.student_id == req.session.user.id
+      );
+      if (!isEnrolled) {
+        return res.status(403).json({ error: 'Доступ запрещен' });
+      }
+    }
+
+    // Для преподавателей проверяем, что это их курс
+    if (req.session.user.role === 'teacher' && course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    // Формируем информацию о файлах
+    const attachedFiles = lab.attached_files ? lab.attached_files.split(',').map((filename, index) => ({
+      originalname: filename.trim(),
+      filename: lab.file_paths ? lab.file_paths.split(',')[index] : null
+    })) : [];
+
+    res.json({ 
+      lab: {
+        ...lab,
+        attached_files_info: attachedFiles
+      }
+    });
   } catch (error) {
     console.error('Ошибка получения лабораторной работы:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-app.get('/api/labs/:id/files', requireAuth, async (req, res) => {
-  try {
-    const lab = db.data.labs.find(l => l.id == req.params.id);
-    if (!lab) {
-      return res.status(404).json({ error: 'Лабораторная работа не найдена' });
-    }
 
-    // Парсим информацию о файлах
-    let attachedFiles = [];
-    try {
-      if (lab.attached_files) {
-        attachedFiles = JSON.parse(lab.attached_files);
-      }
-    } catch (e) {
-      console.error('Ошибка парсинга attached_files:', e);
-      // Если JSON невалиден, пытаемся получить из старого формата
-      if (lab.attached_files && lab.file_paths) {
-        const fileNames = lab.attached_files.split(',');
-        const filePaths = lab.file_paths.split(',');
-        attachedFiles = fileNames.map((name, index) => ({
-          originalname: name.trim(),
-          filename: filePaths[index] ? filePaths[index].split('/').pop() : '',
-          path: filePaths[index] || ''
-        }));
-      }
-    }
-
-    res.json({ files: attachedFiles });
-  } catch (error) {
-    console.error('Ошибка получения файлов лабораторной работы:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Скачивание файла преподавателя (для студентов)
+// Скачивание файла преподавателя
 app.get('/api/labs/:id/files/:filename', requireAuth, async (req, res) => {
   try {
-    const lab = db.data.labs.find(l => l.id == req.params.id);
+    const labId = req.params.id;
+    const filename = req.params.filename;
+    
+    const lab = db.data.labs.find(l => l.id == labId);
     if (!lab) {
       return res.status(404).json({ error: 'Лабораторная работа не найдена' });
     }
-    
-    let attachedFiles = [];
-    try {
-      if (lab.attached_files) {
-        attachedFiles = JSON.parse(lab.attached_files);
-      }
-    } catch (e) {
-      // Обработка старого формата
-      if (lab.attached_files && lab.file_paths) {
-        const fileNames = lab.attached_files.split(',');
-        const filePaths = lab.file_paths.split(',');
-        attachedFiles = fileNames.map((name, index) => ({
-          originalname: name.trim(),
-          path: filePaths[index] || ''
-        }));
+
+    // Проверяем доступ
+    const course = db.findCourseById(lab.course_id);
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    // Для студентов проверяем, что они записаны на курс
+    if (req.session.user.role === 'student') {
+      const isEnrolled = db.data.enrollments.some(
+        e => e.course_id == course.id && e.student_id == req.session.user.id
+      );
+      if (!isEnrolled) {
+        return res.status(403).json({ error: 'Доступ запрещен' });
       }
     }
-    
-    const file = attachedFiles.find(f => f.originalname === req.params.filename);
-    if (!file || !file.path) {
+
+    // Находим файл в attached_files_info
+    const fileInfo = lab.attached_files_info && lab.attached_files_info.find(f => 
+      f.originalname === filename
+    );
+
+    if (!fileInfo || !fileInfo.filename) {
       return res.status(404).json({ error: 'Файл не найден' });
     }
-    
-    if (!fs.existsSync(file.path)) {
+
+    // Проверяем существование файла
+    if (!fs.existsSync(fileInfo.filename)) {
       return res.status(404).json({ error: 'Файл не найден на сервере' });
     }
+
+    // Отправляем файл
+    res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.originalname}"`);
+    res.sendFile(path.resolve(fileInfo.filename));
     
-    res.download(file.path, file.originalname);
   } catch (error) {
-    console.error('Ошибка скачивания файла преподавателя:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Получение информации о submission
-app.get('/api/submissions/:id', requireAuth, async (req, res) => {
-  try {
-    const submission = db.data.submissions.find(s => s.id == req.params.id);
-    if (!submission) {
-      return res.status(404).json({ error: 'Работа не найдена' });
-    }
-    res.json({ submission });
-  } catch (error) {
-    console.error('Ошибка получения submission:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-app.get('/api/submissions/:id/files', requireAuth, async (req, res) => {
-  try {
-    const submission = db.data.submissions.find(s => s.id == req.params.id);
-    if (!submission) {
-      return res.status(404).json({ error: 'Сдача не найдена' });
-    }
-
-    // Парсим информацию о файлах
-    let studentFiles = [];
-    try {
-      if (submission.files) {
-        studentFiles = JSON.parse(submission.files);
-      }
-    } catch (e) {
-      console.error('Ошибка парсинга submission files:', e);
-      // Если JSON невалиден, пытаемся получить из старого формата
-      if (submission.files && submission.file_paths) {
-        const fileNames = submission.files.split(',');
-        const filePaths = submission.file_paths.split(',');
-        studentFiles = fileNames.map((name, index) => ({
-          originalname: name.trim(),
-          filename: filePaths[index] ? filePaths[index].split('/').pop() : '',
-          path: filePaths[index] || ''
-        }));
-      }
-    }
-
-    res.json({ files: studentFiles });
-  } catch (error) {
-    console.error('Ошибка получения файлов сдачи:', error);
+    console.error('Ошибка скачивания файла:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -1535,40 +1529,92 @@ app.get('/api/submissions/:id/files', requireAuth, async (req, res) => {
 // Скачивание файла студента (для преподавателя)
 app.get('/api/submissions/:id/files/:filename', requireAuth, async (req, res) => {
   try {
-    const submission = db.data.submissions.find(s => s.id == req.params.id);
+    const submissionId = req.params.id;
+    const filename = req.params.filename;
+    
+    const submission = db.data.submissions.find(s => s.id == submissionId);
     if (!submission) {
-      return res.status(404).json({ error: 'Сдача не найдена' });
+      return res.status(404).json({ error: 'Работа не найдена' });
     }
-    
-    let studentFiles = [];
-    try {
-      if (submission.files) {
-        studentFiles = JSON.parse(submission.files);
-      }
-    } catch (e) {
-      // Обработка старого формата
-      if (submission.files && submission.file_paths) {
-        const fileNames = submission.files.split(',');
-        const filePaths = submission.file_paths.split(',');
-        studentFiles = fileNames.map((name, index) => ({
-          originalname: name.trim(),
-          path: filePaths[index] || ''
-        }));
-      }
+
+    // Проверяем, что пользователь - преподаватель и имеет доступ
+    if (req.session.user.role !== 'teacher') {
+      return res.status(403).json({ error: 'Доступ только для преподавателей' });
     }
+
+    const lab = db.data.labs.find(l => l.id == submission.lab_id);
+    const course = lab ? db.findCourseById(lab.course_id) : null;
     
-    const file = studentFiles.find(f => f.originalname === req.params.filename);
-    if (!file || !file.path) {
+    if (!course || course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    // Находим файл студента
+    const fileIndex = submission.files.split(',').findIndex(f => f.trim() === filename);
+    if (fileIndex === -1) {
       return res.status(404).json({ error: 'Файл не найден' });
     }
-    
-    if (!fs.existsSync(file.path)) {
+
+    const filePath = submission.file_paths.split(',')[fileIndex];
+    if (!filePath || !fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Файл не найден на сервере' });
     }
+
+    // Отправляем файл
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.sendFile(path.resolve(filePath));
     
-    res.download(file.path, file.originalname);
   } catch (error) {
     console.error('Ошибка скачивания файла студента:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+
+// Получение информации о submission с файлами
+app.get('/api/submissions/:id', requireAuth, async (req, res) => {
+  try {
+    const submissionId = req.params.id;
+    const submission = db.data.submissions.find(s => s.id == submissionId);
+    
+    if (!submission) {
+      return res.status(404).json({ error: 'Работа не найдена' });
+    }
+
+    // Проверяем доступ
+    const lab = db.data.labs.find(l => l.id == submission.lab_id);
+    const course = lab ? db.findCourseById(lab.course_id) : null;
+    
+    if (!course) {
+      return res.status(404).json({ error: 'Курс не найден' });
+    }
+
+    // Для преподавателей проверяем, что это их курс
+    if (req.session.user.role === 'teacher' && course.teacher_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    // Для студентов проверяем, что это их работа
+    if (req.session.user.role === 'student' && submission.student_id != req.session.user.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    // Формируем информацию о файлах студента
+    const studentFiles = submission.files ? submission.files.split(',').map((filename, index) => ({
+      originalname: filename.trim(),
+      filename: submission.file_paths ? submission.file_paths.split(',')[index] : null
+    })) : [];
+
+    res.json({ 
+      submission: {
+        ...submission,
+        student_files_info: studentFiles,
+        lab_title: lab ? lab.title : 'Неизвестно',
+        course_name: course ? course.name : 'Неизвестно'
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения работы:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
