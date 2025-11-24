@@ -713,8 +713,9 @@ async function downloadTeacherFile(labId, filename) {
             credentials: 'include'
         });
         
+        console.log('📊 Статус ответа:', response.status);
+        
         if (response.ok) {
-            // Создаем blob и скачиваем файл
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -728,7 +729,8 @@ async function downloadTeacherFile(labId, filename) {
             showAlert('Файл успешно скачан', 'success');
         } else {
             const errorData = await response.json();
-            throw new Error(errorData.error);
+            console.error('❌ Ошибка сервера:', errorData);
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
     } catch (error) {
         console.error('❌ Ошибка скачивания файла преподавателя:', error);
