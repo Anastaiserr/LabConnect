@@ -1275,6 +1275,37 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
   }
 });*/
 
+// Получение всех курсов (для студентов)
+app.get('/api/courses/all', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'student') {
+      return res.status(403).json({ error: 'Доступ только для студентов' });
+  }
+
+  try {
+      const allCourses = db.getAllCourses();
+      
+      // Добавляем информацию о преподавателе и проверяем, записан ли студент
+      const coursesWithDetails = allCourses.map(course => {
+          const teacher = db.findUserById(course.teacher_id);
+          const isEnrolled = db.data.enrollments.some(
+              e => e.course_id == course.id && e.student_id == req.session.user.id
+          );
+          
+          return {
+              ...course,
+              teacher_first_name: teacher?.firstName || 'Неизвестно',
+              teacher_last_name: teacher?.lastName || 'Неизвестно',
+              is_enrolled: isEnrolled
+          };
+      });
+      
+      res.json({ courses: coursesWithDetails });
+  } catch (error) {
+      console.error('Ошибка получения курсов:', error);
+      res.status(500).json({ error: 'Ошибка базы данных' });
+  }
+});
+
 // Принудительная запись студента на курс (для преподавателя)
 app.post('/api/courses/:id/enroll-student', requireAuth, async (req, res) => {
     try {

@@ -1655,3 +1655,54 @@ hr {
     border: none;
     border-top: 2px solid #e9ecef;
 }
+
+/* Стили для страницы поиска курсов */
+.available-courses-section {
+    margin-bottom: 3rem;
+}
+
+.available-courses-section h3,
+.my-courses-section h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--secondary-color);
+}
+
+.search-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.search-box {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.search-box input {
+    flex: 1;
+}
+
+#show-all-btn {
+    white-space: nowrap;
+}
+
+.course-protection {
+    font-size: 0.8rem;
+    color: #666;
+    background: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.enrollment-status {
+    background: #27ae60;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
