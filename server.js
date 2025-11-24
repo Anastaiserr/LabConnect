@@ -498,57 +498,6 @@ getStudentSubmissions(studentId) {
 // Инициализация базы данных
 const db = new JSONDatabase();
 
-// === ВРЕМЕННЫЙ КОД - УДАЛИТЬ ПОСЛЕ ЗАПУСКА ===
-// Функция для исправления существующих данных
-function fixExistingFileNames() {
-  console.log('🔄 Исправление имен файлов в существующих данных...');
-  
-  // Исправляем лабораторные работы
-  db.data.labs.forEach(lab => {
-      if (lab.attached_files_info) {
-          lab.attached_files_info.forEach(fileInfo => {
-              if (fileInfo.originalname) {
-                  try {
-                      fileInfo.originalname = decodeURIComponent(fileInfo.originalname);
-                      fileInfo.originalname = fileInfo.originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
-                      console.log('✅ Исправлено имя файла:', fileInfo.originalname);
-                  } catch (e) {
-                      console.log('❌ Ошибка исправления имени файла:', fileInfo.originalname);
-                  }
-              }
-          });
-      }
-  });
-  
-  // Исправляем сдачи работ
-  if (db.data.submissions) {
-      db.data.submissions.forEach(submission => {
-          if (submission.student_files_info) {
-              submission.student_files_info.forEach(fileInfo => {
-                  if (fileInfo.originalname) {
-                      try {
-                          fileInfo.originalname = decodeURIComponent(fileInfo.originalname);
-                          fileInfo.originalname = fileInfo.originalname.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
-                          console.log('✅ Исправлено имя файла студента:', fileInfo.originalname);
-                      } catch (e) {
-                          console.log('❌ Ошибка исправления имени файла студента:', fileInfo.originalname);
-                      }
-                  }
-              });
-          }
-      });
-  }
-  
-  db.save();
-  console.log('✅ Все имена файлов исправлены!');
-}
-
-// Запускаем функцию исправления
-console.log('🚀 Запуск исправления имен файлов...');
-fixExistingFileNames();
-console.log('🎯 Исправление завершено. Можно удалить этот код.');
-// === КОНЕЦ ВРЕМЕННОГО КОДА ===
-
 // Middleware для проверки аутентификации
 function requireAuth(req, res, next) {
   if (req.session.user) {
