@@ -707,30 +707,30 @@ async function openLabWorkModal(labId) {
 // Скачивание файла преподавателя
 async function downloadTeacherFile(labId, filename) {
     try {
-        const response = await fetch(`/api/labs/${labId}/files/${encodeURIComponent(filename)}`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            // Создаем blob и скачиваем файл
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error);
-        }
+      const response = await fetch(`/api/labs/${labId}/files/${encodeURIComponent(filename)}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        // Создаем blob и скачиваем файл
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error);
+      }
     } catch (error) {
-        console.error('❌ Ошибка скачивания файла преподавателя:', error);
-        showAlert('Ошибка скачивания файла: ' + error.message, 'error');
+      console.error('❌ Ошибка скачивания файла преподавателя:', error);
+      showAlert('Ошибка скачивания файла: ' + error.message, 'error');
     }
-}
+  }
 
 // Обработка отправки лабораторной работы
 async function handleLabSubmission(e) {

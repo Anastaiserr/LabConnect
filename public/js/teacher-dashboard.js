@@ -1014,38 +1014,28 @@ function openCreateLabModal() {
 }
 
 // Функция создания новой лабораторной работы
-// Функция создания новой лабораторной работы
 async function createNewLab() {
     const form = document.getElementById('lab-create-form');
     if (!form) {
-        console.error('❌ Форма создания лабораторной работы не найдена');
-        return;
+      console.error('❌ Форма создания лабораторной работы не найдена');
+      return;
     }
     
     if (!currentCourseId) {
-        showAlert('Ошибка: курс не выбран', 'error');
-        return;
+      showAlert('Ошибка: курс не выбран', 'error');
+      return;
     }
     
     const formData = new FormData(form);
     formData.append('course_id', currentCourseId);
     
-    // Отладочная информация
-    debugFormData(formData);
-    
     // Валидация
     const labName = formData.get('name');
     const labDescription = formData.get('description');
     
-    console.log('🔍 Проверка обязательных полей:', {
-        name: labName,
-        description: labDescription,
-        course_id: formData.get('course_id')
-    });
-    
     if (!labName || !labDescription) {
-        showAlert('Название и описание обязательны для заполнения', 'error');
-        return;
+      showAlert('Название и описание обязательны для заполнения', 'error');
+      return;
     }
     
     // Проверка дат
@@ -1053,45 +1043,40 @@ async function createNewLab() {
     const deadline = new Date(formData.get('deadline'));
     
     if (deadline <= startDate) {
-        showAlert('Дедлайн должен быть позже даты начала', 'error');
-        return;
+      showAlert('Дедлайн должен быть позже даты начала', 'error');
+      return;
     }
-
+  
     try {
-        console.log('🔄 Отправка данных лабораторной работы:', {
-            name: formData.get('name'),
-            description: formData.get('description'),
-            course_id: formData.get('course_id'),
-            files: formData.getAll('files')
-        });
-
-        const response = await fetch('/api/labs', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData
-        });
-
-        console.log('📊 Статус создания лабораторной работы:', response.status);
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Ошибка создания лабораторной работы');
-        }
-
-        const result = await response.json();
-        console.log('✅ Лабораторная работа создана:', result);
-        
-        showAlert(result.message, 'success');
-        document.getElementById('create-lab-modal').style.display = 'none';
-        form.reset();
-        
-        // Перезагружаем список лабораторных работ
-        await loadCourseLabs(currentCourseId);
-        await loadCourseLabsCount(currentCourseId);
-        
+      console.log('🔄 Отправка данных лабораторной работы...');
+  
+      const response = await fetch('/api/labs', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+  
+      console.log('📊 Статус создания лабораторной работы:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка создания лабораторной работы');
+      }
+  
+      const result = await response.json();
+      console.log('✅ Лабораторная работа создана:', result);
+      
+      showAlert(result.message, 'success');
+      document.getElementById('create-lab-modal').style.display = 'none';
+      form.reset();
+      
+      // Перезагружаем список лабораторных работ
+      await loadCourseLabs(currentCourseId);
+      await loadCourseLabsCount(currentCourseId);
+      
     } catch (error) {
-        console.error('❌ Ошибка создания лабораторной работы:', error);
-        showAlert('Ошибка создания лабораторной работы: ' + error.message, 'error');
+      console.error('❌ Ошибка создания лабораторной работы:', error);
+      showAlert('Ошибка создания лабораторной работы: ' + error.message, 'error');
     }
 }
 
@@ -1466,28 +1451,28 @@ async function getTeacherSubmissions() {
 // Функция для скачивания файлов студента
 async function downloadStudentFile(submissionId, filename) {
     try {
-        const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            // Создаем blob и скачиваем файл
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error);
-        }
+      const response = await fetch(`/api/submissions/${submissionId}/files/${encodeURIComponent(filename)}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        // Создаем blob и скачиваем файл
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error);
+      }
     } catch (error) {
-        console.error('❌ Ошибка скачивания файла студента:', error);
-        showAlert('Ошибка скачивания файла: ' + error.message, 'error');
+      console.error('❌ Ошибка скачивания файла студента:', error);
+      showAlert('Ошибка скачивания файла: ' + error.message, 'error');
     }
 }
 
