@@ -50,7 +50,7 @@ async function loadStudentData() {
     }
 }
 
-// Загрузка доступных курсов
+// Альтернативная функция загрузки доступных курсов
 async function loadAvailableCourses() {
     try {
         const container = document.getElementById('available-courses-list');
@@ -58,21 +58,33 @@ async function loadAvailableCourses() {
         
         container.innerHTML = '<div class="loading">Загрузка доступных курсов...</div>';
         
-        console.log('🔄 Запрос всех курсов...');
-        const response = await fetch('/api/courses/all', {
+        // Используем поиск с пустым запросом для получения всех курсов
+        const response = await fetch(`/api/courses/search?query=`, {
             credentials: 'include'
         });
         
-        console.log('📊 Статус ответа:', response.status);
-        
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Получены курсы:', result.courses?.length || 0);
-            displayAvailableCourses(result.courses || []);
+            console.log('✅ Получены курсы через поиск:', result.courses?.length || 0);
+            
+            // Фильтруем курсы, чтобы показать только незаписанные
+            const myCoursesResponse = await fetch('/api/student/courses', {
+                credentials: 'include'
+            });
+            
+            let myCourseIds = [];
+            if (myCoursesResponse.ok) {
+                const myCoursesResult = await myCoursesResponse.json();
+                myCourseIds = myCoursesResult.courses?.map(c => c.id) || [];
+            }
+            
+            const availableCourses = result.courses?.filter(course => 
+                !myCourseIds.includes(course.id)
+            ) || [];
+            
+            displayAvailableCourses(availableCourses);
         } else {
-            const errorText = await response.text();
-            console.error('❌ Ошибка сервера:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error('Ошибка загрузки курсов через поиск');
         }
     } catch (error) {
         console.error('❌ Ошибка загрузки доступных курсов:', error);
@@ -80,9 +92,8 @@ async function loadAvailableCourses() {
         if (container) {
             container.innerHTML = `
                 <div class="error-message">
-                    <h4>Ошибка загрузки доступных курсов</h4>
-                    <p>${error.message}</p>
-                    <button class="btn btn-secondary" onclick="loadAvailableCourses()">Повторить попытку</button>
+                    <p>Ошибка загрузки доступных курсов</p>
+                    <p>Попробуйте обновить страницу или использовать поиск</p>
                 </div>
             `;
         }
