@@ -58,21 +58,33 @@ async function loadAvailableCourses() {
         
         container.innerHTML = '<div class="loading">Загрузка доступных курсов...</div>';
         
+        console.log('🔄 Запрос всех курсов...');
         const response = await fetch('/api/courses/all', {
             credentials: 'include'
         });
         
+        console.log('📊 Статус ответа:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Получены курсы:', result.courses?.length || 0);
             displayAvailableCourses(result.courses || []);
         } else {
-            throw new Error('Ошибка загрузки доступных курсов');
+            const errorText = await response.text();
+            console.error('❌ Ошибка сервера:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
         console.error('❌ Ошибка загрузки доступных курсов:', error);
         const container = document.getElementById('available-courses-list');
         if (container) {
-            container.innerHTML = '<div class="error-message">Ошибка загрузки доступных курсов</div>';
+            container.innerHTML = `
+                <div class="error-message">
+                    <h4>Ошибка загрузки доступных курсов</h4>
+                    <p>${error.message}</p>
+                    <button class="btn btn-secondary" onclick="loadAvailableCourses()">Повторить попытку</button>
+                </div>
+            `;
         }
     }
 }

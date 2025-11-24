@@ -1277,19 +1277,22 @@ app.get('/api/students/search', requireAuth, async (req, res) => {
 
 // Получение всех курсов (для студентов)
 app.get('/api/courses/all', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'student') {
-      return res.status(403).json({ error: 'Доступ только для студентов' });
-  }
-
   try {
+      console.log('📚 Запрос всех курсов для студента:', req.session.user.id);
+      
+      if (req.session.user.role !== 'student') {
+          return res.status(403).json({ error: 'Доступ только для студентов' });
+      }
+
       const allCourses = db.getAllCourses();
+      console.log('📊 Найдено курсов:', allCourses.length);
       
       // Добавляем информацию о преподавателе и проверяем, записан ли студент
       const coursesWithDetails = allCourses.map(course => {
           const teacher = db.findUserById(course.teacher_id);
-          const isEnrolled = db.data.enrollments.some(
+          const isEnrolled = db.data.enrollments ? db.data.enrollments.some(
               e => e.course_id == course.id && e.student_id == req.session.user.id
-          );
+          ) : false;
           
           return {
               ...course,
@@ -1299,10 +1302,12 @@ app.get('/api/courses/all', requireAuth, async (req, res) => {
           };
       });
       
+      console.log('✅ Отправляем курсы:', coursesWithDetails.length);
       res.json({ courses: coursesWithDetails });
+      
   } catch (error) {
-      console.error('Ошибка получения курсов:', error);
-      res.status(500).json({ error: 'Ошибка базы данных' });
+      console.error('❌ Ошибка получения курсов:', error);
+      res.status(500).json({ error: 'Ошибка базы данных: ' + error.message });
   }
 });
 
