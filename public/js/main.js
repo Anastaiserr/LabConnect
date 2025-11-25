@@ -346,22 +346,10 @@ function initProfileModals() {
     editProfileBtn.addEventListener('click', openEditProfileModal);
   }
 
-  // Модальное окно смены логина
-  const changeUsernameBtn = document.getElementById('change-username-btn');
-  if (changeUsernameBtn) {
-    changeUsernameBtn.addEventListener('click', openChangeUsernameModal);
-  }
-
   // Модальное окно смены пароля
   const changePasswordBtn = document.getElementById('change-password-btn');
   if (changePasswordBtn) {
     changePasswordBtn.addEventListener('click', openChangePasswordModal);
-  }
-
-  // Модальное окно удаления профиля
-  const deleteProfileBtn = document.getElementById('delete-profile-btn');
-  if (deleteProfileBtn) {
-    deleteProfileBtn.addEventListener('click', openDeleteProfileModal);
   }
 
   // Обработчики форм

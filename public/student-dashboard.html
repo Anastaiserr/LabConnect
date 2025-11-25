@@ -48,9 +48,7 @@
                         <h3>Мой профиль</h3>
                         <div class="profile-actions">
                             <button class="btn btn-secondary" id="edit-profile">Редактировать профиль</button>
-                            <button class="btn btn-secondary" id="change-username-btn">Сменить логин</button>
                             <button class="btn btn-secondary" id="change-password-btn">Сменить пароль</button>
-                            <button class="btn btn-danger" id="delete-profile-btn">Удалить профиль</button>
                         </div>
                     </div>
                     <div class="profile-info">
@@ -192,32 +190,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно смены логина -->
-    <div id="change-username-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Смена логина</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="username-change-form">
-                    <div class="form-group">
-                        <label for="new-username">Новый логин</label>
-                        <input type="text" id="new-username" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="username-password">Текущий пароль</label>
-                        <input type="password" id="username-password" class="form-control" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Сменить логин</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Модальное окно смены пароля -->
     <div id="change-password-modal" class="modal">
         <div class="modal-content">
@@ -242,37 +214,6 @@
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
                         <button type="submit" class="btn btn-primary">Сменить пароль</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно удаления профиля -->
-    <div id="delete-profile-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Удаление профиля</h3>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="warning-message">
-                    <h4>⚠️ Внимание! Это действие необратимо!</h4>
-                    <p>Все ваши данные, включая курсы, лабораторные работы и оценки, будут безвозвратно удалены.</p>
-                </div>
-                <form id="profile-delete-form">
-                    <div class="form-group">
-                        <label for="delete-password">Пароль для подтверждения</label>
-                        <input type="password" id="delete-password" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="delete-confirmation">Введите "УДАЛИТЬ" для подтверждения</label>
-                        <input type="text" id="delete-confirmation" class="form-control" required 
-                               pattern="УДАЛИТЬ" placeholder="УДАЛИТЬ">
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
-                        <button type="submit" class="btn btn-danger">Удалить профиль</button>
                     </div>
                 </form>
             </div>
