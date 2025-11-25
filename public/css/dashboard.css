@@ -1948,3 +1948,30 @@ hr {
     padding: 2rem;
     color: #666;
 }
+
+/* Стили для PDF предпросмотра */
+.pdf-preview {
+    text-align: center;
+}
+
+.preview-header {
+    background: #e3f2fd;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.preview-table {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 1rem;
+}

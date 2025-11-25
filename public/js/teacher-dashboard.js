@@ -1589,12 +1589,14 @@ async function generateStatement() {
         });
         
         if (response.ok) {
-            const statementData = await response.json();
-            displayStatement(statementData, format);
+            statementData = await response.json(); // Сохраняем данные
             
-            // Показываем кнопку экспорта
-            document.getElementById('export-statement').style.display = 'inline-block';
-            document.getElementById('export-statement').onclick = () => exportStatement(statementData, format);
+            if (format === 'pdf') {
+                // Для PDF сразу генерируем и скачиваем
+                exportToPDF(statementData);
+            } else {
+                displayStatement(statementData, format);
+            }
             
         } else {
             throw new Error('Ошибка формирования ведомости');
@@ -1605,19 +1607,277 @@ async function generateStatement() {
     }
 }
 
+// Экспорт в PDF
+function exportToPDF(data) {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Заголовок
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ВЕДОМОСТЬ УСПЕВАЕМОСТИ', 105, 20, { align: 'center' });
+        
+        // Информация о курсе
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Курс: ${data.course.name}`, 20, 35);
+        doc.text(`Дисциплина: ${data.course.discipline}`, 20, 42);
+        doc.text(`Преподаватель: ${data.course.teacher.lastName} ${data.course.teacher.firstName}`, 20, 49);
+        doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`, 20, 56);
+        
+        // Статистика
+        doc.text(`Студентов: ${data.students.length}`, 140, 35);
+        doc.text(`Лабораторных работ: ${data.labs.length}`, 140, 42);
+        doc.text(`Средний процент сдачи: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
+        
+        // Подготовка данных для таблицы
+        const headers = [
+            '№',
+            'Фамилия Имя',
+            'Группа',
+            ...data.labs.map((lab, index) => `ЛР${index + 1}`),
+            'Средний балл',
+            'Статус'
+        ];
+        
+        const rows = data.students.map((student, index) => {
+            const grades = data.labs.map(lab => {
+                const studentLab = student.labs.find(sl => sl.lab_id === lab.id);
+                if (!studentLab || !studentLab.submitted) return '-';
+                return studentLab.score !== null ? studentLab.score : '✓';
+            });
+            
+            const submittedCount = student.labs.filter(lab => lab.submitted).length;
+            const status = submittedCount === data.labs.length ? 'Завершено' : 
+                          submittedCount > 0 ? 'В процессе' : 'Не начато';
+            
+            return [
+                (index + 1).toString(),
+                `${student.lastName} ${student.firstName}`,
+                student.group || '-',
+                ...grades,
+                student.stats.average_score ? student.stats.average_score.toFixed(1) : '-',
+                status
+            ];
+        });
+        
+        // Генерация таблицы
+        doc.autoTable({
+            startY: 65,
+            head: [headers],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [41, 128, 185] },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { top: 65 }
+        });
+        
+        // Итоговая статистика на последней странице
+        const finalY = doc.lastAutoTable.finalY + 10;
+        if (finalY < 280) {
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('СТАТИСТИКА КУРСА', 20, finalY);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Общее количество студентов: ${data.students.length}`, 20, finalY + 8);
+            doc.text(`Выполнено лабораторных работ: ${calculateTotalSubmissions(data)}`, 20, finalY + 16);
+            doc.text(`Средний балл по курсу: ${calculateOverallAverage(data)}`, 20, finalY + 24);
+            
+            const excellent = data.students.filter(s => s.stats.average_score >= 9).length;
+            const good = data.students.filter(s => s.stats.average_score >= 7 && s.stats.average_score < 9).length;
+            const satisfactory = data.students.filter(s => s.stats.average_score >= 5 && s.stats.average_score < 7).length;
+            const unsatisfactory = data.students.filter(s => s.stats.average_score < 5 && s.stats.average_score > 0).length;
+            
+            doc.text(`Отличники (9-10): ${excellent}`, 20, finalY + 32);
+            doc.text(`Хорошисты (7-8.9): ${good}`, 20, finalY + 40);
+            doc.text(`Удовлетворительно (5-6.9): ${satisfactory}`, 20, finalY + 48);
+            doc.text(`Неудовлетворительно: ${unsatisfactory}`, 20, finalY + 56);
+        }
+        
+        // Сохранение PDF
+        const fileName = `Ведомость_${data.course.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
+        
+        showAlert('PDF ведомость успешно сгенерирована и скачана', 'success');
+        
+    } catch (error) {
+        console.error('Ошибка генерации PDF:', error);
+        showAlert('Ошибка генерации PDF: ' + error.message, 'error');
+    }
+}
+
+// Печать PDF
+function printPDF(data) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Ведомость - ${data.course.name}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .course-info { margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .grade { text-align: center; }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>ВЕДОМОСТЬ УСПЕВАЕМОСТИ</h1>
+            </div>
+            
+            <div class="course-info">
+                <p><strong>Курс:</strong> ${data.course.name}</p>
+                <p><strong>Дисциплина:</strong> ${data.course.discipline}</p>
+                <p><strong>Преподаватель:</strong> ${data.course.teacher.lastName} ${data.course.teacher.firstName}</p>
+                <p><strong>Дата:</strong> ${new Date().toLocaleDateString('ru-RU')}</p>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Студент</th>
+                        <th>Группа</th>
+                        ${data.labs.map((lab, index) => `<th>ЛР${index + 1}</th>`).join('')}
+                        <th>Средний</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.students.map((student, index) => `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${student.lastName} ${student.firstName}</td>
+                            <td>${student.group || '-'}</td>
+                            ${student.labs.map(lab => `
+                                <td class="grade">
+                                    ${lab.submitted ? (lab.score !== null ? lab.score : '✓') : '-'}
+                                </td>
+                            `).join('')}
+                            <td class="grade">${student.stats.average_score || '-'}</td>
+                            <td>
+                                ${student.stats.submitted_labs === data.labs.length ? 'Завершено' : 
+                                  student.stats.submitted_labs > 0 ? 'В процессе' : 'Не начато'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 30px;">
+                <button class="no-print" onclick="window.print()">🖨️ Печать</button>
+                <button class="no-print" onclick="window.close()">✖️ Закрыть</button>
+            </div>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+// Вспомогательные функции для статистики
+function calculateTotalSubmissions(data) {
+    return data.students.reduce((total, student) => total + student.stats.submitted_labs, 0);
+}
+
+function calculateOverallAverage(data) {
+    const studentsWithGrades = data.students.filter(s => s.stats.average_score > 0);
+    if (studentsWithGrades.length === 0) return 0;
+    const total = studentsWithGrades.reduce((sum, s) => sum + s.stats.average_score, 0);
+    return (total / studentsWithGrades.length).toFixed(1);
+}
+
 // Отображение ведомости
 function displayStatement(data, format) {
     const preview = document.getElementById('statement-preview');
     
     if (format === 'table') {
         preview.innerHTML = generateTableStatement(data);
-    } else {
-        preview.innerHTML = `<div class="placeholder">
-            <p>Экспорт в ${format.toUpperCase()} будет доступен в следующей версии</p>
-            <p>Используйте табличный формат для просмотра</p>
-        </div>`;
+    } else if (format === 'pdf') {
+        preview.innerHTML = generatePDFPreview(data);
     }
 }
+
+// Предпросмотр PDF
+function generatePDFPreview(data) {
+    return `
+        <div class="pdf-preview">
+            <div class="preview-header">
+                <h4>📄 Предпросмотр PDF ведомости</h4>
+                <p>Готова к экспорту: <strong>${data.course.name}</strong></p>
+                <p>Студентов: ${data.students.length}, Лабораторных работ: ${data.labs.length}</p>
+            </div>
+            <div class="preview-actions">
+                <button class="btn btn-primary" onclick="exportToPDF(statementData)">📥 Скачать PDF</button>
+                <button class="btn btn-secondary" onclick="printPDF(statementData)">🖨️ Печать</button>
+            </div>
+            <div class="preview-table">
+                ${generateSimpleTable(data)}
+            </div>
+        </div>
+    `;
+}
+
+// Простая таблица для предпросмотра
+function generateSimpleTable(data) {
+    const { students, labs } = data;
+    
+    let html = `
+        <table class="statement-table" style="font-size: 0.8rem;">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Студент</th>
+                    <th>Группа</th>
+    `;
+    
+    labs.forEach((lab, index) => {
+        html += `<th>ЛР${index + 1}</th>`;
+    });
+    
+    html += `
+                    <th>Средний</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    students.forEach((student, index) => {
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${student.lastName} ${student.firstName[0]}.</td>
+                <td>${student.group || '-'}</td>
+        `;
+        
+        student.labs.forEach(lab => {
+            let grade = '-';
+            if (lab.submitted && lab.score !== null) {
+                grade = lab.score;
+            } else if (lab.submitted) {
+                grade = '✓';
+            }
+            html += `<td class="grade-cell">${grade}</td>`;
+        });
+        
+        html += `<td class="grade-cell">${student.stats.average_score || '-'}</td></tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    return html;
+}
+
+// Глобальная переменная для хранения данных ведомости
+let statementData = null;
 
 // Генерация табличной ведомости
 function generateTableStatement(data) {
