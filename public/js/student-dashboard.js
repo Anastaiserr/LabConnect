@@ -28,6 +28,9 @@ async function initStudentDashboard() {
     
     // Инициализация модальных окон
     initModals();
+
+    // Настройка автоматического обновления прогресса
+    setupProgressAutoUpdate();
     
     console.log('✅ Личный кабинет студента инициализирован');
 }
@@ -71,9 +74,38 @@ function loadTabData(tabId) {
             initCalendar();
             break;
         case 'profile':
-            // Уже загружено при инициализации
+            // Обновляем прогресс при открытии вкладки профиля
+            loadStudentProgress();
             break;
     }
+}
+
+// Автоматическое обновление прогресса при действиях
+function setupProgressAutoUpdate() {
+    // Обновляем прогресс после сдачи работы
+    const originalHandleLabSubmission = window.handleLabSubmission;
+    window.handleLabSubmission = async function(e) {
+        await originalHandleLabSubmission.call(this, e);
+        // Обновляем прогресс после успешной сдачи
+        setTimeout(() => {
+            loadStudentProgress();
+        }, 1000);
+    };
+    
+    // Обновляем прогресс при загрузке страницы
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            // Страница стала активной - обновляем прогресс
+            loadStudentProgress();
+        }
+    });
+    
+    // Обновляем прогресс каждые 2 минуты
+    setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            loadStudentProgress();
+        }
+    }, 120000); // 2 минуты
 }
 
 async function loadStudentData() {
@@ -96,6 +128,9 @@ async function loadStudentData() {
                 document.getElementById('profile-email').textContent = data.user.email;
                 document.getElementById('profile-group').textContent = data.user.group || 'Не указана';
                 document.getElementById('profile-faculty').textContent = data.user.faculty || 'Не указан';
+                
+                // Загружаем и обновляем статистику прогресса
+                await loadStudentProgress();
             }
         } else {
             console.error('❌ Ошибка загрузки данных пользователя');
@@ -104,6 +139,124 @@ async function loadStudentData() {
     } catch (error) {
         console.error('❌ Ошибка загрузки данных студента:', error);
         window.location.href = 'login.html';
+    }
+}
+
+// Загрузка статистики прогресса студента
+async function loadStudentProgress() {
+    try {
+        // Загружаем сданные работы студента
+        const submissionsResponse = await fetch('/api/student/submissions', {
+            credentials: 'include'
+        });
+        
+        if (!submissionsResponse.ok) {
+            throw new Error('Ошибка загрузки данных прогресса');
+        }
+        
+        const submissionsResult = await submissionsResponse.json();
+        const submissions = submissionsResult.submissions || [];
+        
+        // Загружаем курсы студента для подсчета общего количества лабораторных
+        const coursesResponse = await fetch('/api/student/courses', {
+            credentials: 'include'
+        });
+        
+        let totalLabs = 0;
+        if (coursesResponse.ok) {
+            const coursesResult = await coursesResponse.json();
+            const courses = coursesResult.courses || [];
+            
+            // Считаем общее количество лабораторных работ
+            for (const course of courses) {
+                const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
+                    credentials: 'include'
+                });
+                
+                if (labsResponse.ok) {
+                    const labsResult = await labsResponse.json();
+                    totalLabs += labsResult.labs?.length || 0;
+                }
+            }
+        }
+        
+        // Анализируем статистику
+        const completedWorks = submissions.filter(s => s.status === 'checked').length;
+        const pendingWorks = submissions.filter(s => s.status === 'pending').length;
+        const revisionWorks = submissions.filter(s => s.status === 'revision').length;
+        
+        // Считаем средний балл
+        const gradedSubmissions = submissions.filter(s => s.score !== null && s.score !== undefined);
+        const averageScore = gradedSubmissions.length > 0 
+            ? (gradedSubmissions.reduce((sum, s) => sum + s.score, 0) / gradedSubmissions.length).toFixed(1)
+            : 0;
+        
+        // Обновляем прогресс на странице
+        updateProgressStats({
+            completedWorks,
+            pendingWorks,
+            revisionWorks,
+            averageScore,
+            totalLabs
+        });
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки прогресса:', error);
+        // Устанавливаем значения по умолчанию при ошибке
+        updateProgressStats({
+            completedWorks: 0,
+            pendingWorks: 0,
+            revisionWorks: 0,
+            averageScore: 0,
+            totalLabs: 0
+        });
+    }
+}
+
+// Обновление статистики прогресса на странице
+function updateProgressStats(stats) {
+    const progressCard = document.querySelector('.progress-stats');
+    if (!progressCard) return;
+    
+    progressCard.innerHTML = `
+        <div class="stat-item">
+            <span class="stat-value">${stats.completedWorks}</span>
+            <span class="stat-label">Выполненных работ</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value">${stats.averageScore}</span>
+            <span class="stat-label">Средний балл</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value">${stats.pendingWorks + stats.revisionWorks}</span>
+            <span class="stat-label">Ожидают проверки</span>
+        </div>
+        ${stats.totalLabs > 0 ? `
+        <div class="stat-item">
+            <span class="stat-value">${Math.round((stats.completedWorks / stats.totalLabs) * 100)}%</span>
+            <span class="stat-label">Общий прогресс</span>
+        </div>
+        ` : ''}
+    `;
+    
+    // Также обновляем прогресс в карточке профиля (если есть)
+    updateProfileProgress(stats);
+}
+
+// Обновление прогресса в основной карточке профиля
+function updateProfileProgress(stats) {
+    const progressElements = {
+        'completed-works': stats.completedWorks,
+        'average-score': stats.averageScore,
+        'pending-works': stats.pendingWorks + stats.revisionWorks,
+        'total-progress': stats.totalLabs > 0 ? Math.round((stats.completedWorks / stats.totalLabs) * 100) + '%' : '0%'
+    };
+    
+    for (const [id, value] of Object.entries(progressElements)) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
     }
 }
 
