@@ -345,157 +345,6 @@
     font-weight: 600;
 }
 
-/* Стили для событий календаря */
-.calendar-event {
-    background: var(--secondary-color);
-    color: white;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    margin-top: 0.2rem;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: all 0.3s;
-}
-
-.calendar-event:hover {
-    background: #2980b9;
-    transform: scale(1.05);
-}
-
-.calendar-event-pending {
-    background: var(--warning-color);
-}
-
-.calendar-event-active {
-    background: var(--secondary-color);
-}
-
-.calendar-event-overdue {
-    background: var(--danger-color);
-}
-
-.calendar-event-completed {
-    background: var(--success-color);
-}
-
-/* Улучшение стилей календаря */
-.calendar-day {
-    position: relative;
-    min-height: 100px;
-}
-
-.day-events {
-    position: absolute;
-    bottom: 5px;
-    left: 5px;
-    right: 5px;
-    max-height: 60px;
-    overflow-y: auto;
-}
-
-.calendar-event {
-    margin-bottom: 2px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.calendar-event:hover {
-    transform: scale(1.02);
-}
-
-.calendar-event-more {
-    background: #6c757d;
-    color: white;
-    padding: 0.1rem 0.3rem;
-    border-radius: 3px;
-    font-size: 0.7rem;
-    text-align: center;
-    cursor: pointer;
-}
-
-/* Улучшение скролла для событий */
-.day-events::-webkit-scrollbar {
-    width: 3px;
-}
-
-.day-events::-webkit-scrollbar-track {
-    background: #f1f1f1;
-}
-
-.day-events::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.day-events::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Стили для списка дедлайнов */
-.no-deadlines {
-    text-align: center;
-    padding: 2rem;
-    color: #666;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.deadline-item {
-    background: white;
-    padding: 1rem;
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    border-left: 4px solid var(--secondary-color);
-    cursor: pointer;
-    transition: all 0.3s;
-}
-
-.deadline-item:hover {
-    transform: translateX(5px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.deadline-item.overdue {
-    border-left-color: var(--danger-color);
-    background: #fff5f5;
-}
-
-.deadline-item.completed {
-    border-left-color: var(--success-color);
-    background: #f0fff4;
-}
-
-.deadline-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-    color: var(--dark-color);
-}
-
-.deadline-course {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 0.5rem;
-}
-
-.deadline-date {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--dark-color);
-    margin-bottom: 0.5rem;
-}
-
-.deadline-status {
-    display: inline-block;
-    padding: 0.2rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
 /* Стили для чата */
 .chat-container, .teacher-chat-container {
     display: grid;
@@ -763,6 +612,61 @@
     color: #856404;
     margin: 0;
 }
+/* Стили для статусов дедлайнов */
+.deadline-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    display: inline-block;
+}
+
+.deadline-status.overdue {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.deadline-status.today {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.deadline-status.urgent {
+    background: #ffeaa7;
+    color: #e67e22;
+}
+
+.deadline-status.soon {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.deadline-status.normal {
+    background: #d4edda;
+    color: #155724;
+}
+
+/* Улучшение отображения событий в календаре */
+.calendar-event {
+    background: var(--secondary-color);
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    margin-top: 0.2rem;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.calendar-event:hover {
+    background: #2980b9;
+    transform: scale(1.05);
+}
+
 /* Стили для управления курсами */
 .courses-management {
     margin-top: 1rem;

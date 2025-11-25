@@ -1,4 +1,4 @@
-//student-dashboard.js
+// js/student-dashboard.js
 // Функциональность личного кабинета студента
 
 let currentFilter = 'active';
@@ -801,11 +801,6 @@ function initCalendar() {
     let currentDate = new Date();
     
     function renderCalendar() {
-        const calendar = document.getElementById('calendar-widget');
-        const currentMonthElement = document.getElementById('current-month');
-        
-        if (!calendar || !currentMonthElement) return;
-    
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         
@@ -814,22 +809,13 @@ function initCalendar() {
             month: 'long', 
             year: 'numeric' 
         });
-    
-        // Получаем первый и последний день месяца
+        
+        // Генерация календаря
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const daysInMonth = lastDay.getDate();
+        const startingDay = firstDay.getDay();
         
-        // Получаем день недели первого дня месяца (0 - воскресенье, 1 - понедельник, и т.д.)
-        let startingDay = firstDay.getDay();
-        // Преобразуем воскресенье (0) в 6 для правильного отображения (понедельник - первый день)
-        if (startingDay === 0) startingDay = 6;
-        else startingDay = startingDay - 1;
-    
-        // Получаем количество дней в предыдущем месяце
-        const prevMonthLastDay = new Date(year, month, 0).getDate();
-    
-        // Начинаем генерацию календаря
         let calendarHTML = '<div class="calendar-grid">';
         
         // Заголовки дней недели
@@ -837,437 +823,33 @@ function initCalendar() {
         days.forEach(day => {
             calendarHTML += `<div class="calendar-day header">${day}</div>`;
         });
-    
-        // Пустые ячейки перед первым днем месяца (дни предыдущего месяца)
-        for (let i = 0; i < startingDay; i++) {
-            const prevMonthDay = prevMonthLastDay - startingDay + i + 1;
-            const prevMonthDate = new Date(year, month - 1, prevMonthDay);
-            calendarHTML += `
-                <div class="calendar-day other-month" 
-                     data-date="${prevMonthDate.toISOString().split('T')[0]}">
-                    ${prevMonthDay}
-                </div>
-            `;
+        
+        // Пустые ячейки перед первым днем месяца
+        // Корректируем для русского календаря (понедельник - первый день)
+        const startOffset = startingDay === 0 ? 6 : startingDay - 1;
+        for (let i = 0; i < startOffset; i++) {
+            calendarHTML += '<div class="calendar-day other-month"></div>';
         }
-    
-        // Дни текущего месяца
+        
+        // Дни месяца
         const today = new Date();
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth();
-        const currentDay = today.getDate();
-    
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
-            const dateString = date.toISOString().split('T')[0];
-            
-            // Проверяем, является ли день сегодняшним
-            const isToday = year === currentYear && 
-                           month === currentMonth && 
-                           day === currentDay;
-            
+            const isToday = date.toDateString() === today.toDateString();
             const dayClass = isToday ? 'calendar-day today' : 'calendar-day';
             
-            calendarHTML += `
-                <div class="${dayClass}" data-date="${dateString}">
-                    <div class="day-number">${day}</div>
-                    <div class="day-events" id="events-${dateString}"></div>
-                </div>
-            `;
+            calendarHTML += `<div class="${dayClass}" data-date="${date.toISOString().split('T')[0]}">${day}`;
+            
+            // События будут добавляться позже через updateCalendarWithEvents
+            // Не добавляем mock события здесь
+            calendarHTML += '</div>';
         }
-    
-        // Пустые ячейки после последнего дня месяца (дни следующего месяца)
-        const totalCells = 42; // 6 строк × 7 дней
-        const remainingCells = totalCells - (startingDay + daysInMonth);
         
-        for (let i = 0; i < remainingCells; i++) {
-            const nextMonthDay = i + 1;
-            const nextMonthDate = new Date(year, month + 1, nextMonthDay);
-            calendarHTML += `
-                <div class="calendar-day other-month" 
-                     data-date="${nextMonthDate.toISOString().split('T')[0]}">
-                    ${nextMonthDay}
-                </div>
-            `;
-        }
-    
         calendarHTML += '</div>';
         calendar.innerHTML = calendarHTML;
-    
-        // Загружаем события для текущего месяца
-        loadCalendarEvents(year, month + 1);
-    }
-
-    // Функция для загрузки событий календаря
-    async function loadCalendarEvents(year, month) {
-        try {
-            console.log('📅 Загрузка событий календаря для:', year, month);
-    
-            // Загружаем курсы студента
-            const coursesResponse = await fetch('/api/student/courses', {
-                credentials: 'include'
-            });
-            
-            if (!coursesResponse.ok) {
-                throw new Error('Ошибка загрузки курсов');
-            }
-    
-            const coursesResult = await coursesResponse.json();
-            const courses = coursesResult.courses || [];
-            
-            let allLabs = [];
-    
-            // Собираем все лабораторные работы из всех курсов
-            for (const course of courses) {
-                try {
-                    const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
-                        credentials: 'include'
-                    });
-                    
-                    if (labsResponse.ok) {
-                        const labsResult = await labsResponse.json();
-                        const labs = labsResult.labs || [];
-                        
-                        // Добавляем информацию о курсе к каждой лабораторной работе
-                        const courseLabs = labs.map(lab => ({
-                            ...lab,
-                            course_name: course.name,
-                            course_id: course.id
-                        }));
-                        
-                        allLabs = allLabs.concat(courseLabs);
-                    } else {
-                        console.warn(`❌ Ошибка загрузки лабораторных работ для курса ${course.id}:`, labsResponse.status);
-                    }
-                } catch (courseError) {
-                    console.error(`❌ Ошибка при загрузке курса ${course.id}:`, courseError);
-                }
-            }
-    
-            console.log('📊 Найдено лабораторных работ:', allLabs.length);
-    
-            // Отображаем события в календаре
-            displayCalendarEvents(allLabs, year, month);
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки событий календаря:', error);
-        }
-    }
-
-    // Функция для отображения событий в календаре
-    function displayCalendarEvents(labs, year, month) {
-        // Очищаем предыдущие события
-        document.querySelectorAll('.calendar-event, .calendar-event-more').forEach(event => {
-            event.remove();
-        });
-    
-        // Фильтруем лабораторные работы по текущему месяцу
-        const currentMonthLabs = labs.filter(lab => {
-            if (!lab.deadline) return false;
-            
-            try {
-                const deadlineDate = new Date(lab.deadline);
-                const deadlineYear = deadlineDate.getFullYear();
-                const deadlineMonth = deadlineDate.getMonth() + 1; // getMonth() возвращает 0-11
-                
-                return deadlineYear === year && deadlineMonth === month;
-            } catch (e) {
-                console.warn('❌ Ошибка парсинга даты:', lab.deadline);
-                return false;
-            }
-        });
-    
-        console.log('🎯 Лабораторные работы в текущем месяце:', currentMonthLabs.length);
-    
-        // Группируем лабораторные работы по датам
-        const labsByDate = {};
-        currentMonthLabs.forEach(lab => {
-            try {
-                const deadlineDate = new Date(lab.deadline);
-                const dateKey = deadlineDate.toISOString().split('T')[0];
-                
-                if (!labsByDate[dateKey]) {
-                    labsByDate[dateKey] = [];
-                }
-                
-                // Проверяем дубликаты по ID
-                const existingLab = labsByDate[dateKey].find(existing => existing.id === lab.id);
-                if (!existingLab) {
-                    labsByDate[dateKey].push(lab);
-                }
-            } catch (e) {
-                console.warn('❌ Ошибка обработки лабораторной работы:', lab.id, e);
-            }
-        });
-    
-        // Добавляем события в календарь
-        Object.keys(labsByDate).forEach(dateKey => {
-            const dayLabs = labsByDate[dateKey];
-            const eventsContainer = document.getElementById(`events-${dateKey}`);
-            
-            if (eventsContainer) {
-                // Очищаем контейнер перед добавлением новых событий
-                eventsContainer.innerHTML = '';
-                
-                // Сортируем работы по времени дедлайна
-                dayLabs.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-                
-                // Ограничиваем количество отображаемых событий (максимум 3)
-                const labsToShow = dayLabs.slice(0, 3);
-                
-                labsToShow.forEach(lab => {
-                    const status = getLabStatus(lab);
-                    const statusClass = `calendar-event-${status}`;
-                    const isOverdue = status === 'overdue';
-                    
-                    const eventHTML = `
-                        <div class="calendar-event ${statusClass} ${isOverdue ? 'overdue' : ''}" 
-                            data-lab-id="${lab.id}"
-                            title="${lab.title} - ${lab.course_name}">
-                            📝 ${lab.title.length > 15 ? lab.title.substring(0, 15) + '...' : lab.title}
-                        </div>
-                    `;
-                    
-                    eventsContainer.innerHTML += eventHTML;
-                });
-                
-                // Показываем количество скрытых событий
-                if (dayLabs.length > 3) {
-                    const hiddenCount = dayLabs.length - 3;
-                    eventsContainer.innerHTML += `
-                        <div class="calendar-event-more" title="Еще ${hiddenCount} работ">
-                            +${hiddenCount}
-                        </div>
-                    `;
-                }
-                
-                // Добавляем обработчики для событий
-                eventsContainer.querySelectorAll('.calendar-event').forEach(eventElement => {
-                    eventElement.addEventListener('click', function() {
-                        const labId = this.getAttribute('data-lab-id');
-                        openLabWorkModal(labId);
-                    });
-                });
-            }
-        });
-    
-        // Обновляем список ближайших дедлайнов
-        updateUpcomingDeadlines(currentMonthLabs);
-    }
-
-    // Функция для обновления списка ближайших дедлайнов
-    function updateUpcomingDeadlines(labs) {
-        const deadlinesList = document.getElementById('deadlines-list');
-        if (!deadlinesList) return;
-    
-        // Убираем дубликаты по ID
-        const uniqueLabs = labs.filter((lab, index, self) => 
-            index === self.findIndex(l => l.id === lab.id)
-        );
-    
-        // Фильтруем только активные и предстоящие работы
-        const upcomingLabs = uniqueLabs.filter(lab => {
-            const status = getLabStatus(lab);
-            return status === 'active' || status === 'upcoming' || status === 'overdue';
-        });
-    
-        // Сортируем по дате дедлайна
-        upcomingLabs.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-    
-        // Берем ближайшие 5 дедлайнов
-        const nearestDeadlines = upcomingLabs.slice(0, 5);
-    
-        if (nearestDeadlines.length > 0) {
-            deadlinesList.innerHTML = nearestDeadlines.map(lab => {
-                const status = getLabStatus(lab);
-                const isOverdue = status === 'overdue';
-                const daysLeft = calculateDaysLeft(lab.deadline);
-                
-                return `
-                    <div class="deadline-item ${isOverdue ? 'overdue' : ''}" data-lab-id="${lab.id}">
-                        <div class="deadline-header">
-                            <div class="deadline-title">${lab.title}</div>
-                            <div class="deadline-days ${isOverdue ? 'overdue' : ''}">
-                                ${isOverdue ? '⚠️ Просрочено' : `⏰ ${daysLeft}`}
-                            </div>
-                        </div>
-                        <div class="deadline-course">${lab.course_name}</div>
-                        <div class="deadline-date">📅 ${formatDateTime(lab.deadline)}</div>
-                        <div class="deadline-actions">
-                            <button class="btn btn-primary btn-sm open-lab-from-deadline" 
-                                    data-lab-id="${lab.id}">
-                                Перейти к работе
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-    
-            // Добавляем обработчики
-            addDeadlineEventHandlers();
-        } else {
-            deadlinesList.innerHTML = `
-                <div class="no-deadlines">
-                    <p>🎉 На этот месяц дедлайнов нет!</p>
-                    <p>Все лабораторные работы сданы вовремя</p>
-                </div>
-            `;
-        }
-    }
-
-    // Вспомогательная функция для расчета оставшихся дней
-    function calculateDaysLeft(deadline) {
-        try {
-            const now = new Date();
-            const deadlineDate = new Date(deadline);
-            const diffTime = deadlineDate - now;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays < 0) {
-                return 'Просрочено';
-            } else if (diffDays === 0) {
-                return 'Сегодня';
-            } else if (diffDays === 1) {
-                return 'Завтра';
-            } else if (diffDays <= 7) {
-                return `Осталось ${diffDays} дней`;
-            } else {
-                return `${Math.ceil(diffDays / 7)} недель`;
-            }
-        } catch (e) {
-            return 'Ошибка даты';
-        }
-    }
-
-    function removeDuplicateLabs(labs) {
-        const seen = new Set();
-        return labs.filter(lab => {
-            if (seen.has(lab.id)) {
-                return false;
-            }
-            seen.add(lab.id);
-            return true;
-        });
-    }
-    
-    // Загрузка реальных дедлайнов для месяца
-    async function loadDeadlinesForMonth(year, month) {
-        try {
-            const deadlinesList = document.getElementById('deadlines-list');
-            if (!deadlinesList) return;
-
-            console.log('📅 Загрузка дедлайнов для:', year, month);
-
-            // Загружаем курсы студента
-            const coursesResponse = await fetch('/api/student/courses', {
-                credentials: 'include'
-            });
         
-            if (!coursesResponse.ok) {
-                throw new Error('Ошибка загрузки курсов');
-            }
-
-            const coursesResult = await coursesResponse.json();
-            const courses = coursesResult.courses || [];
-        
-            let allDeadlines = [];
-
-            // Для каждого курса загружаем лабораторные работы
-            for (const course of courses) {
-                const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
-                    credentials: 'include'
-                });
-            
-                if (labsResponse.ok) {
-                    const labsResult = await response.json();
-                    const labs = labsResult.labs || [];
-                
-                    // Добавляем лабораторные работы с информацией о курсе
-                    const courseLabs = labs.map(lab => ({
-                        ...lab,
-                        course_name: course.name,
-                        course_id: course.id
-                    }));
-                
-                    allDeadlines = allDeadlines.concat(courseLabs);
-                }
-            }
-
-            // Фильтруем дедлайны по текущему месяцу
-            const currentMonthDeadlines = allDeadlines.filter(lab => {
-                if (!lab.deadline) return false;
-            
-                const deadlineDate = new Date(lab.deadline);
-                const deadlineYear = deadlineDate.getFullYear();
-                const deadlineMonth = deadlineDate.getMonth() + 1; // getMonth() возвращает 0-11
-            
-                return deadlineYear === year && deadlineMonth === month;
-            });
-
-            // Сортируем по дате дедлайна
-            currentMonthDeadlines.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-
-            // Отображаем дедлайны
-            if (currentMonthDeadlines.length > 0) {
-                deadlinesList.innerHTML = currentMonthDeadlines.map(deadline => `
-                    <div class="deadline-item" data-lab-id="${deadline.id}">
-                        <div class="deadline-title">${deadline.title}</div>
-                        <div class="deadline-course">${deadline.course_name}</div>
-                        <div class="deadline-date">
-                            📅 ${formatDateTime(deadline.deadline)}
-                        </div>
-                        <div class="deadline-status status-${getLabStatus(deadline)}">
-                            ${getLabStatusText(deadline)}
-                        </div>
-                        <button class="btn btn-primary btn-sm open-lab-from-deadline" 
-                                data-lab-id="${deadline.id}">
-                            Перейти к работе
-                        </button>
-                    </div>
-                `).join('');
-
-                // Добавляем обработчики для кнопок
-                addDeadlineEventHandlers();
-            } else {
-                deadlinesList.innerHTML = `
-                    <div class="no-deadlines">
-                        <p>На этот месяц дедлайнов нет</p>
-                        <p>Все лабораторные работы сданы вовремя! 🎉</p>
-                    </div>
-                `;
-            }
-
-        } catch (error) {
-            console.error('❌ Ошибка загрузки дедлайнов:', error);
-            const deadlinesList = document.getElementById('deadlines-list');
-            if (deadlinesList) {
-                deadlinesList.innerHTML = `
-                    <div class="error-message">
-                        <p>Ошибка загрузки дедлайнов</p>
-                        <small>${error.message}</small>
-                    </div>
-                `;
-            }
-        }
-    }
-
-    // Обработчики событий для дедлайнов
-    function addDeadlineEventHandlers() {
-        // Обработчик для кнопки "Перейти к работе"
-        document.querySelectorAll('.open-lab-from-deadline').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const labId = this.getAttribute('data-lab-id');
-                openLabWorkModal(labId);
-            });
-        });
-    
-        // Обработчик для клика по самому дедлайну
-        document.querySelectorAll('.deadline-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const labId = this.getAttribute('data-lab-id');
-                openLabWorkModal(labId);
-            });
-        });
+        // Загружаем дедлайны для текущего месяца
+        loadDeadlinesForMonth(year, month + 1);
     }
     
     // Обработчики для кнопок навигации
@@ -1290,7 +872,167 @@ function initCalendar() {
 }
 
 // Вспомогательные функции
-// Улучшенная функция определения статуса лабораторной работы
+// Загрузка дедлайнов для месяца
+async function loadDeadlinesForMonth(year, month) {
+    try {
+        const deadlinesList = document.getElementById('deadlines-list');
+        if (!deadlinesList) return;
+
+        deadlinesList.innerHTML = '<div class="loading">Загрузка дедлайнов...</div>';
+
+        // Получаем все курсы студента
+        const coursesResponse = await fetch('/api/student/courses', {
+            credentials: 'include'
+        });
+        
+        if (!coursesResponse.ok) {
+            throw new Error('Ошибка загрузки курсов');
+        }
+
+        const coursesResult = await coursesResponse.json();
+        const courses = coursesResult.courses || [];
+        
+        if (courses.length === 0) {
+            deadlinesList.innerHTML = '<div class="no-data">Нет записей на курсы</div>';
+            return;
+        }
+
+        // Собираем все лабораторные работы со всех курсов
+        let allLabs = [];
+        
+        for (const course of courses) {
+            try {
+                const labsResponse = await fetch(`/api/courses/${course.id}/labs`, {
+                    credentials: 'include'
+                });
+                
+                if (labsResponse.ok) {
+                    const labsResult = await labsResponse.json();
+                    const labs = labsResult.labs || [];
+                    
+                    // Добавляем информацию о курсе к каждой лабораторной
+                    const labsWithCourse = labs.map(lab => ({
+                        ...lab,
+                        course_name: course.name,
+                        course_id: course.id
+                    }));
+                    
+                    allLabs = allLabs.concat(labsWithCourse);
+                }
+            } catch (error) {
+                console.error(`Ошибка загрузки лабораторных для курса ${course.id}:`, error);
+            }
+        }
+
+        // Фильтруем лабораторные по текущему месяцу
+        const currentMonthDeadlines = allLabs.filter(lab => {
+            if (!lab.deadline) return false;
+            
+            const deadlineDate = new Date(lab.deadline);
+            return deadlineDate.getFullYear() === year && 
+                deadlineDate.getMonth() + 1 === month;
+        });
+
+        // Сортируем по дате дедлайна
+        currentMonthDeadlines.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
+        // Отображаем дедлайны
+        if (currentMonthDeadlines.length > 0) {
+            deadlinesList.innerHTML = currentMonthDeadlines.map(deadline => `
+                <div class="deadline-item" data-lab-id="${deadline.id}">
+                    <div class="deadline-title">${deadline.title}</div>
+                    <div class="deadline-course">${deadline.course_name}</div>
+                    <div class="deadline-date">${formatDateTime(deadline.deadline)}</div>
+                    <div class="deadline-status ${getDeadlineStatus(deadline)}">
+                        ${getDeadlineStatusText(deadline)}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            deadlinesList.innerHTML = '<div class="no-data">Нет дедлайнов на этот месяц</div>';
+        }
+
+        // Обновляем календарь с событиями
+        updateCalendarWithEvents(allLabs, year, month);
+
+    } catch (error) {
+        console.error('Ошибка загрузки дедлайнов:', error);
+        const deadlinesList = document.getElementById('deadlines-list');
+        if (deadlinesList) {
+            deadlinesList.innerHTML = '<div class="error-message">Ошибка загрузки дедлайнов</div>';
+        }
+    }
+}
+
+// Обновление календаря с событиями
+function updateCalendarWithEvents(labs, year, month) {
+    const calendarDays = document.querySelectorAll('.calendar-day:not(.header):not(.other-month)');
+    
+    // Очищаем предыдущие события
+    calendarDays.forEach(day => {
+        const existingEvents = day.querySelectorAll('.calendar-event');
+        existingEvents.forEach(event => event.remove());
+    });
+
+    // Добавляем события на соответствующие дни
+    labs.forEach(lab => {
+        if (!lab.deadline) return;
+        
+        const deadlineDate = new Date(lab.deadline);
+        if (deadlineDate.getFullYear() === year && deadlineDate.getMonth() + 1 === month) {
+            const day = deadlineDate.getDate();
+            
+            calendarDays.forEach(calendarDay => {
+                const dayNumber = parseInt(calendarDay.textContent);
+                if (dayNumber === day) {
+                    const event = document.createElement('div');
+                    event.className = 'calendar-event';
+                    event.textContent = lab.title;
+                    event.title = `${lab.title} - ${lab.course_name}`;
+                    event.style.cursor = 'pointer';
+                    
+                    // Добавляем обработчик клика
+                    event.addEventListener('click', () => {
+                        openLabWorkModal(lab.id);
+                    });
+                    
+                    calendarDay.appendChild(event);
+                }
+            });
+        }
+    });
+}
+
+// Получение статуса дедлайна
+function getDeadlineStatus(lab) {
+    if (!lab.deadline) return 'unknown';
+    
+    const now = new Date();
+    const deadline = new Date(lab.deadline);
+    const timeDiff = deadline - now;
+    const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff < 0) return 'overdue';
+    if (daysDiff === 0) return 'today';
+    if (daysDiff <= 3) return 'urgent';
+    if (daysDiff <= 7) return 'soon';
+    return 'normal';
+}
+
+// Текст статуса дедлайна
+function getDeadlineStatusText(lab) {
+    const status = getDeadlineStatus(lab);
+    const statusMap = {
+        'overdue': '⚠️ Просрочено',
+        'today': '🔥 Сегодня',
+        'urgent': '⏰ Срочно',
+        'soon': '📅 Скоро',
+        'normal': '✅ Активно',
+        'unknown': '❓ Неизвестно'
+    };
+    return statusMap[status] || '❓ Неизвестно';
+}
+
 function getLabStatus(lab) {
     if (!lab.start_date || !lab.deadline) return 'active';
     
@@ -1298,15 +1040,8 @@ function getLabStatus(lab) {
     const startDate = new Date(lab.start_date);
     const deadline = new Date(lab.deadline);
     
-    // Проверяем, есть ли сдача работы
-    if (lab.submission) {
-        if (lab.submission.status === 'checked') return 'completed';
-        if (lab.submission.status === 'revision') return 'revision';
-        if (lab.submission.status === 'pending') return 'pending';
-    }
-    
     if (now < startDate) return 'upcoming';
-    if (now > deadline) return 'overdue';
+    if (now > deadline) return 'completed';
     return 'active';
 }
 
@@ -1314,11 +1049,8 @@ function getLabStatusText(lab) {
     const status = getLabStatus(lab);
     const statusMap = {
         'active': 'Активна',
-        'upcoming': 'Скоро начнется',
-        'completed': 'Завершена',
-        'overdue': 'Просрочена',
-        'pending': 'На проверке',
-        'revision': 'На доработку'
+        'upcoming': 'Скоро начнется', 
+        'completed': 'Завершена'
     };
     return statusMap[status] || status;
 }
