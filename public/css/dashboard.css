@@ -1834,3 +1834,117 @@ hr {
     background: #3498db;
     color: white;
 }
+
+/* Стили для ведомостей */
+.statement-controls {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.statement-preview {
+    min-height: 400px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.statement-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.statement-table th,
+.statement-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.statement-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.statement-table tr:hover {
+    background: #f8f9fa;
+}
+
+.grade-cell {
+    text-align: center;
+    font-weight: 600;
+}
+
+.grade-excellent { color: #27ae60; }
+.grade-good { color: #3498db; }
+.grade-satisfactory { color: #f39c12; }
+.grade-unsatisfactory { color: #e74c3c; }
+.grade-pending { color: #95a5a6; }
+
+.student-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.student-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.statement-summary {
+    background: #e8f5e8;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.summary-label {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.export-options {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.placeholder {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.loading-statement {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+}

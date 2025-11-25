@@ -17,6 +17,9 @@ async function initTeacherDashboard() {
     
     // Инициализация модальных окон
     initTeacherModals();
+
+    // Инициализация ведомости
+    initStatement();
     
     // Загрузка данных преподавателя
     await loadTeacherData();
@@ -1541,6 +1544,229 @@ async function gradeSubmission(e) {
         console.error('Ошибка оценки работы:', error);
         showAlert('Ошибка оценки: ' + error.message, 'error');
     }
+}
+
+// Загрузка курсов для выбора в ведомости
+async function loadCoursesForStatement() {
+    try {
+        const courseSelect = document.getElementById('statement-course');
+        if (!courseSelect) return;
+        
+        const response = await fetch('/api/teacher/courses', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            const courses = result.courses || [];
+            
+            courseSelect.innerHTML = '<option value="">-- Выберите курс --</option>' +
+                courses.map(course => 
+                    `<option value="${course.id}">${course.name} (${course.discipline})</option>`
+                ).join('');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки курсов для ведомости:', error);
+    }
+}
+
+// Формирование ведомости
+async function generateStatement() {
+    const courseId = document.getElementById('statement-course').value;
+    const format = document.getElementById('statement-format').value;
+    
+    if (!courseId) {
+        showAlert('Выберите курс для формирования ведомости', 'warning');
+        return;
+    }
+    
+    try {
+        const preview = document.getElementById('statement-preview');
+        preview.innerHTML = '<div class="loading-statement">Формирование ведомости...</div>';
+        
+        const response = await fetch(`/api/courses/${courseId}/statement`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const statementData = await response.json();
+            displayStatement(statementData, format);
+            
+            // Показываем кнопку экспорта
+            document.getElementById('export-statement').style.display = 'inline-block';
+            document.getElementById('export-statement').onclick = () => exportStatement(statementData, format);
+            
+        } else {
+            throw new Error('Ошибка формирования ведомости');
+        }
+    } catch (error) {
+        console.error('Ошибка формирования ведомости:', error);
+        showAlert('Ошибка формирования ведомости: ' + error.message, 'error');
+    }
+}
+
+// Отображение ведомости
+function displayStatement(data, format) {
+    const preview = document.getElementById('statement-preview');
+    
+    if (format === 'table') {
+        preview.innerHTML = generateTableStatement(data);
+    } else {
+        preview.innerHTML = `<div class="placeholder">
+            <p>Экспорт в ${format.toUpperCase()} будет доступен в следующей версии</p>
+            <p>Используйте табличный формат для просмотра</p>
+        </div>`;
+    }
+}
+
+// Генерация табличной ведомости
+function generateTableStatement(data) {
+    const { course, labs, students } = data;
+    
+    let html = `
+        <div class="statement-header">
+            <h4>Ведомость по курсу: ${course.name}</h4>
+            <p><strong>Дисциплина:</strong> ${course.discipline}</p>
+            <p><strong>Преподаватель:</strong> ${course.teacher.firstName} ${course.teacher.lastName}</p>
+            <p><strong>Дата формирования:</strong> ${new Date().toLocaleDateString('ru-RU')}</p>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="statement-table">
+                <thead>
+                    <tr>
+                        <th>Студент</th>
+                        <th>Группа</th>
+    `;
+    
+    // Заголовки лабораторных работ
+    labs.forEach(lab => {
+        html += `<th title="${lab.title}">ЛР${labs.indexOf(lab) + 1}</th>`;
+    });
+    
+    html += `
+                        <th>Сдано</th>
+                        <th>Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Данные студентов
+    students.forEach(student => {
+        const initials = `${student.firstName[0]}${student.lastName[0]}`;
+        
+        html += `
+            <tr>
+                <td>
+                    <div class="student-info">
+                        <div class="student-avatar">${initials}</div>
+                        <div>
+                            <strong>${student.firstName} ${student.lastName}</strong>
+                            <div style="font-size: 0.8rem; color: #666;">${student.email}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${student.group || '-'}</td>
+        `;
+        
+        // Оценки по лабораторным
+        student.labs.forEach(lab => {
+            let gradeClass = 'grade-pending';
+            let gradeText = '-';
+            
+            if (lab.submitted) {
+                if (lab.score !== null) {
+                    gradeText = lab.score;
+                    if (lab.score >= 9) gradeClass = 'grade-excellent';
+                    else if (lab.score >= 7) gradeClass = 'grade-good';
+                    else if (lab.score >= 5) gradeClass = 'grade-satisfactory';
+                    else gradeClass = 'grade-unsatisfactory';
+                } else {
+                    gradeText = '✓';
+                    gradeClass = 'grade-pending';
+                }
+            }
+            
+            html += `<td class="grade-cell ${gradeClass}">${gradeText}</td>`;
+        });
+        
+        html += `
+                <td class="grade-cell">${student.stats.submitted_labs}/${student.stats.total_labs}</td>
+                <td class="grade-cell ${getAverageGradeClass(student.stats.average_score)}">
+                    ${student.stats.average_score || '-'}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="statement-summary">
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-value">${students.length}</div>
+                    <div class="summary-label">Студентов</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${labs.length}</div>
+                    <div class="summary-label">Лабораторных</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${calculateAverageSubmissionRate(students)}%</div>
+                    <div class="summary-label">Средняя сдача</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${calculateAverageGrade(students)}</div>
+                    <div class="summary-label">Средний балл</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+// Вспомогательные функции для ведомости
+function getAverageGradeClass(average) {
+    if (!average) return 'grade-pending';
+    if (average >= 9) return 'grade-excellent';
+    if (average >= 7) return 'grade-good';
+    if (average >= 5) return 'grade-satisfactory';
+    return 'grade-unsatisfactory';
+}
+
+function calculateAverageSubmissionRate(students) {
+    if (students.length === 0) return 0;
+    const totalRate = students.reduce((sum, student) => {
+        return sum + (student.stats.submitted_labs / student.stats.total_labs) * 100;
+    }, 0);
+    return Math.round(totalRate / students.length);
+}
+
+function calculateAverageGrade(students) {
+    const studentsWithGrades = students.filter(s => s.stats.average_score > 0);
+    if (studentsWithGrades.length === 0) return '-';
+    const total = studentsWithGrades.reduce((sum, s) => sum + s.stats.average_score, 0);
+    return Math.round((total / studentsWithGrades.length) * 10) / 10;
+}
+
+// Экспорт ведомости (заглушка)
+function exportStatement(data, format) {
+    showAlert(`Экспорт в ${format.toUpperCase()} будет реализован в следующей версии`, 'info');
+}
+
+// Инициализация ведомости
+function initStatement() {
+    const generateBtn = document.getElementById('generate-statement');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateStatement);
+    }
+    
+    loadCoursesForStatement();
 }
 
 // Вспомогательные функции

@@ -1850,6 +1850,90 @@ app.get('/api/submissions/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Получение данных для ведомости
+app.get('/api/courses/:id/statement', requireAuth, async (req, res) => {
+  try {
+      const courseId = req.params.id;
+      const course = db.findCourseById(courseId);
+      
+      if (!course) {
+          return res.status(404).json({ error: 'Курс не найден' });
+      }
+
+      // Проверяем, что преподаватель имеет доступ к курсу
+      if (course.teacher_id != req.session.user.id) {
+          return res.status(403).json({ error: 'Доступ запрещен' });
+      }
+
+      // Получаем студентов курса
+      const students = db.getStudentsOnCourse(courseId);
+      
+      // Получаем лабораторные работы курса
+      const labs = db.getLabsByCourse(courseId);
+      
+      // Собираем данные об успеваемости
+      const statementData = {
+          course: {
+              id: course.id,
+              name: course.name,
+              discipline: course.discipline,
+              teacher: req.session.user
+          },
+          labs: labs.map(lab => ({
+              id: lab.id,
+              title: lab.title,
+              max_score: lab.max_score,
+              deadline: lab.deadline
+          })),
+          students: await Promise.all(students.map(async student => {
+              const studentSubmissions = db.data.submissions?.filter(s => 
+                  s.student_id == student.id && labs.some(l => l.id == s.lab_id)
+              ) || [];
+              
+              const studentLabs = labs.map(lab => {
+                  const submission = studentSubmissions.find(s => s.lab_id == lab.id);
+                  return {
+                      lab_id: lab.id,
+                      lab_title: lab.title,
+                      max_score: lab.max_score,
+                      submitted: !!submission,
+                      score: submission?.score || null,
+                      status: submission?.status || 'not_submitted',
+                      submitted_at: submission?.submitted_at,
+                      checked_at: submission?.checked_at
+                  };
+              });
+              
+              const submittedLabs = studentLabs.filter(lab => lab.submitted);
+              const checkedLabs = submittedLabs.filter(lab => lab.score !== null);
+              const totalScore = checkedLabs.reduce((sum, lab) => sum + (lab.score || 0), 0);
+              const averageScore = checkedLabs.length > 0 ? totalScore / checkedLabs.length : 0;
+              
+              return {
+                  id: student.id,
+                  firstName: student.firstName,
+                  lastName: student.lastName,
+                  group: student.group,
+                  email: student.email,
+                  labs: studentLabs,
+                  stats: {
+                      total_labs: labs.length,
+                      submitted_labs: submittedLabs.length,
+                      checked_labs: checkedLabs.length,
+                      average_score: Math.round(averageScore * 10) / 10,
+                      total_score: totalScore
+                  }
+              };
+          }))
+      };
+
+      res.json(statementData);
+  } catch (error) {
+      console.error('Ошибка формирования ведомости:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Все остальные GET запросы
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
