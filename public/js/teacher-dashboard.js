@@ -1608,59 +1608,60 @@ async function generateStatement() {
 }
 
 // Экспорт в PDF с поддержкой русского
+// Альтернативная функция экспорта в PDF с базовым шрифтом
 function exportToPDF(data) {
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
-        // Добавляем поддержку русского языка
-        doc.setLanguage('ru-RU');
+        // Используем только базовые символы ASCII для избежания проблем с кодировкой
+        const formatText = (text) => {
+            // Оставляем только базовые символы
+            return text.replace(/[^\x00-\x7F]/g, ''); // Убираем не-ASCII символы
+        };
         
-        // Устанавливаем шрифт, поддерживающий кириллицу (используем стандартный)
-        doc.setFont('helvetica');
-        
-        // Заголовок
+        // Заголовок (английскими буквами)
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('ВЕДОМОСТЬ УСПЕВАЕМОСТИ', 105, 20, { align: 'center' });
+        doc.text('ACADEMIC PERFORMANCE REPORT', 105, 20, { align: 'center' });
         
         // Информация о курсе
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Курс: ${data.course.name}`, 20, 35);
-        doc.text(`Дисциплина: ${data.course.discipline}`, 20, 42);
-        doc.text(`Преподаватель: ${data.course.teacher.lastName} ${data.course.teacher.firstName}`, 20, 49);
-        doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`, 20, 56);
+        doc.text(`Course: ${formatText(data.course.name)}`, 20, 35);
+        doc.text(`Subject: ${formatText(data.course.discipline)}`, 20, 42);
+        doc.text(`Instructor: ${formatText(data.course.teacher.lastName)} ${formatText(data.course.teacher.firstName)}`, 20, 49);
+        doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, 20, 56);
         
         // Статистика
-        doc.text(`Студентов: ${data.students.length}`, 140, 35);
-        doc.text(`Лабораторных работ: ${data.labs.length}`, 140, 42);
-        doc.text(`Средняя сдача: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
+        doc.text(`Students: ${data.students.length}`, 140, 35);
+        doc.text(`Labs: ${data.labs.length}`, 140, 42);
+        doc.text(`Avg Submission: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
         
-        // Подготовка данных для таблицы
+        // Подготовка данных для таблицы (английские заголовки)
         const headers = [
-            '№',
-            'Фамилия Имя',
-            'Группа',
-            ...data.labs.map((lab, index) => `ЛР${index + 1}`),
-            'Средний',
-            'Статус'
+            '#',
+            'Student',
+            'Group',
+            ...data.labs.map((lab, index) => `Lab${index + 1}`),
+            'Average',
+            'Status'
         ];
         
         const rows = data.students.map((student, index) => {
             const grades = data.labs.map(lab => {
                 const studentLab = student.labs.find(sl => sl.lab_id === lab.id);
                 if (!studentLab || !studentLab.submitted) return '-';
-                return studentLab.score !== null ? studentLab.score.toString() : '✓';
+                return studentLab.score !== null ? studentLab.score.toString() : 'sub';
             });
             
             const submittedCount = student.labs.filter(lab => lab.submitted).length;
-            const status = submittedCount === data.labs.length ? 'Завершено' : 
-                          submittedCount > 0 ? 'В процессе' : 'Не начато';
+            const status = submittedCount === data.labs.length ? 'Completed' : 
+                          submittedCount > 0 ? 'In Progress' : 'Not Started';
             
             return [
                 (index + 1).toString(),
-                `${student.lastName} ${student.firstName}`,
+                `${formatText(student.lastName)} ${formatText(student.firstName)}`,
                 student.group || '-',
                 ...grades,
                 student.stats.average_score ? student.stats.average_score.toFixed(1) : '-',
@@ -1673,63 +1674,20 @@ function exportToPDF(data) {
             startY: 65,
             head: [headers],
             body: rows,
-            styles: { 
-                fontSize: 8,
-                font: 'helvetica'
-            },
-            headStyles: { 
-                fillColor: [41, 128, 185],
-                font: 'helvetica',
-                fontStyle: 'bold'
-            },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-            margin: { top: 65 },
-            tableLineColor: [200, 200, 200],
-            tableLineWidth: 0.1
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [41, 128, 185] },
+            alternateRowStyles: { fillColor: [245, 245, 245] }
         });
         
-        // Итоговая статистика
-        const finalY = doc.lastAutoTable.finalY + 15;
-        if (finalY < 280) {
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.text('СТАТИСТИКА КУРСА', 20, finalY);
-            
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Общее количество студентов: ${data.students.length}`, 20, finalY + 8);
-            doc.text(`Выполнено лабораторных работ: ${calculateTotalSubmissions(data)}`, 20, finalY + 16);
-            doc.text(`Средний балл по курсу: ${calculateOverallAverage(data)}`, 20, finalY + 24);
-            
-            const studentsWithGrades = data.students.filter(s => s.stats.average_score > 0);
-            const excellent = studentsWithGrades.filter(s => s.stats.average_score >= 9).length;
-            const good = studentsWithGrades.filter(s => s.stats.average_score >= 7 && s.stats.average_score < 9).length;
-            const satisfactory = studentsWithGrades.filter(s => s.stats.average_score >= 5 && s.stats.average_score < 7).length;
-            const unsatisfactory = studentsWithGrades.filter(s => s.stats.average_score < 5).length;
-            
-            doc.text(`Отличники (9-10): ${excellent}`, 20, finalY + 32);
-            doc.text(`Хорошисты (7-8.9): ${good}`, 20, finalY + 40);
-            doc.text(`Удовлетворительно (5-6.9): ${satisfactory}`, 20, finalY + 48);
-            doc.text(`Неудовлетворительно: ${unsatisfactory}`, 20, finalY + 56);
-            doc.text(`Без оценок: ${data.students.length - studentsWithGrades.length}`, 20, finalY + 64);
-        }
-        
-        // Добавляем нумерацию страниц
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.text(`Страница ${i} из ${pageCount}`, 195, 290, { align: 'right' });
-        }
-        
         // Сохранение PDF
-        const fileName = `Vedomost_${data.course.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        const fileName = `Report_${data.course.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
         
-        showAlert('PDF ведомость успешно сгенерирована и скачана', 'success');
+        showAlert('PDF report successfully generated and downloaded', 'success');
         
     } catch (error) {
-        console.error('Ошибка генерации PDF:', error);
-        showAlert('Ошибка генерации PDF: ' + error.message, 'error');
+        console.error('Error generating PDF:', error);
+        showAlert('Error generating PDF: ' + error.message, 'error');
     }
 }
 
