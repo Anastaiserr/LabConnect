@@ -1607,11 +1607,17 @@ async function generateStatement() {
     }
 }
 
-// Экспорт в PDF
+// Экспорт в PDF с поддержкой русского
 function exportToPDF(data) {
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
+        
+        // Добавляем поддержку русского языка
+        doc.setLanguage('ru-RU');
+        
+        // Устанавливаем шрифт, поддерживающий кириллицу (используем стандартный)
+        doc.setFont('helvetica');
         
         // Заголовок
         doc.setFontSize(16);
@@ -1619,7 +1625,7 @@ function exportToPDF(data) {
         doc.text('ВЕДОМОСТЬ УСПЕВАЕМОСТИ', 105, 20, { align: 'center' });
         
         // Информация о курсе
-        doc.setFontSize(12);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`Курс: ${data.course.name}`, 20, 35);
         doc.text(`Дисциплина: ${data.course.discipline}`, 20, 42);
@@ -1629,7 +1635,7 @@ function exportToPDF(data) {
         // Статистика
         doc.text(`Студентов: ${data.students.length}`, 140, 35);
         doc.text(`Лабораторных работ: ${data.labs.length}`, 140, 42);
-        doc.text(`Средний процент сдачи: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
+        doc.text(`Средняя сдача: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
         
         // Подготовка данных для таблицы
         const headers = [
@@ -1637,7 +1643,7 @@ function exportToPDF(data) {
             'Фамилия Имя',
             'Группа',
             ...data.labs.map((lab, index) => `ЛР${index + 1}`),
-            'Средний балл',
+            'Средний',
             'Статус'
         ];
         
@@ -1645,7 +1651,7 @@ function exportToPDF(data) {
             const grades = data.labs.map(lab => {
                 const studentLab = student.labs.find(sl => sl.lab_id === lab.id);
                 if (!studentLab || !studentLab.submitted) return '-';
-                return studentLab.score !== null ? studentLab.score : '✓';
+                return studentLab.score !== null ? studentLab.score.toString() : '✓';
             });
             
             const submittedCount = student.labs.filter(lab => lab.submitted).length;
@@ -1667,14 +1673,23 @@ function exportToPDF(data) {
             startY: 65,
             head: [headers],
             body: rows,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] },
+            styles: { 
+                fontSize: 8,
+                font: 'helvetica'
+            },
+            headStyles: { 
+                fillColor: [41, 128, 185],
+                font: 'helvetica',
+                fontStyle: 'bold'
+            },
             alternateRowStyles: { fillColor: [245, 245, 245] },
-            margin: { top: 65 }
+            margin: { top: 65 },
+            tableLineColor: [200, 200, 200],
+            tableLineWidth: 0.1
         });
         
-        // Итоговая статистика на последней странице
-        const finalY = doc.lastAutoTable.finalY + 10;
+        // Итоговая статистика
+        const finalY = doc.lastAutoTable.finalY + 15;
         if (finalY < 280) {
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
@@ -1685,19 +1700,29 @@ function exportToPDF(data) {
             doc.text(`Выполнено лабораторных работ: ${calculateTotalSubmissions(data)}`, 20, finalY + 16);
             doc.text(`Средний балл по курсу: ${calculateOverallAverage(data)}`, 20, finalY + 24);
             
-            const excellent = data.students.filter(s => s.stats.average_score >= 9).length;
-            const good = data.students.filter(s => s.stats.average_score >= 7 && s.stats.average_score < 9).length;
-            const satisfactory = data.students.filter(s => s.stats.average_score >= 5 && s.stats.average_score < 7).length;
-            const unsatisfactory = data.students.filter(s => s.stats.average_score < 5 && s.stats.average_score > 0).length;
+            const studentsWithGrades = data.students.filter(s => s.stats.average_score > 0);
+            const excellent = studentsWithGrades.filter(s => s.stats.average_score >= 9).length;
+            const good = studentsWithGrades.filter(s => s.stats.average_score >= 7 && s.stats.average_score < 9).length;
+            const satisfactory = studentsWithGrades.filter(s => s.stats.average_score >= 5 && s.stats.average_score < 7).length;
+            const unsatisfactory = studentsWithGrades.filter(s => s.stats.average_score < 5).length;
             
             doc.text(`Отличники (9-10): ${excellent}`, 20, finalY + 32);
             doc.text(`Хорошисты (7-8.9): ${good}`, 20, finalY + 40);
             doc.text(`Удовлетворительно (5-6.9): ${satisfactory}`, 20, finalY + 48);
             doc.text(`Неудовлетворительно: ${unsatisfactory}`, 20, finalY + 56);
+            doc.text(`Без оценок: ${data.students.length - studentsWithGrades.length}`, 20, finalY + 64);
+        }
+        
+        // Добавляем нумерацию страниц
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.text(`Страница ${i} из ${pageCount}`, 195, 290, { align: 'right' });
         }
         
         // Сохранение PDF
-        const fileName = `Ведомость_${data.course.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+        const fileName = `Vedomost_${data.course.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
         
         showAlert('PDF ведомость успешно сгенерирована и скачана', 'success');
