@@ -1589,12 +1589,26 @@ async function generateStatement() {
         });
         
         if (response.ok) {
-            statementData = await response.json(); // Сохраняем данные
+            const statementData = await response.json();
             
             if (format === 'pdf') {
-                // Для PDF сразу генерируем и скачиваем
+                // Для PDF открываем окно печати
                 exportToPDF(statementData);
+                // Показываем предпросмотр в основном окне
+                preview.innerHTML = `
+                    <div class="pdf-preview">
+                        <div class="preview-header">
+                            <h4>✅ PDF ведомость готова</h4>
+                            <p>Открыто окно для печати/сохранения PDF</p>
+                            <p>Если окно не открылось, разрешите всплывающие окна</p>
+                        </div>
+                        <div class="preview-actions">
+                            <button class="btn btn-primary" onclick="exportToPDF(statementData)">📥 Повторить экспорт</button>
+                        </div>
+                    </div>
+                `;
             } else {
+                // Для таблицы показываем предпросмотр
                 displayStatement(statementData, format);
             }
             
@@ -1608,88 +1622,315 @@ async function generateStatement() {
 }
 
 // Экспорт в PDF с поддержкой русского
-// Альтернативная функция экспорта в PDF с базовым шрифтом
+// Надежный экспорт в PDF через печать
 function exportToPDF(data) {
     try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        // Создаем окно для печати
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            showAlert('Разрешите всплывающие окна для экспорта PDF', 'error');
+            return;
+        }
+
+        // Генерируем HTML для печати
+        const htmlContent = generatePrintHTML(data);
         
-        // Используем только базовые символы ASCII для избежания проблем с кодировкой
-        const formatText = (text) => {
-            // Оставляем только базовые символы
-            return text.replace(/[^\x00-\x7F]/g, ''); // Убираем не-ASCII символы
-        };
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="ru">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Ведомость - ${data.course.name}</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { 
+                        font-family: 'Times New Roman', Times, serif; 
+                        line-height: 1.4; 
+                        color: #000;
+                        padding: 20px;
+                        background: white;
+                    }
+                    .page { 
+                        max-width: 210mm;
+                        margin: 0 auto;
+                    }
+                    .header { 
+                        text-align: center; 
+                        margin-bottom: 30px;
+                        border-bottom: 2px solid #000;
+                        padding-bottom: 15px;
+                    }
+                    .header h1 { 
+                        font-size: 18px; 
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                        text-transform: uppercase;
+                    }
+                    .course-info { 
+                        margin-bottom: 25px;
+                        font-size: 12px;
+                    }
+                    .course-info p { 
+                        margin-bottom: 5px;
+                    }
+                    table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin: 20px 0;
+                        font-size: 10px;
+                        page-break-inside: avoid;
+                    }
+                    th, td { 
+                        border: 1px solid #000; 
+                        padding: 6px 4px;
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    th { 
+                        background-color: #f5f5f5; 
+                        font-weight: bold;
+                    }
+                    .student-name { 
+                        text-align: left; 
+                        font-size: 9px;
+                    }
+                    .student-name strong {
+                        font-size: 10px;
+                    }
+                    .summary { 
+                        margin-top: 25px;
+                        padding: 15px;
+                        border: 1px solid #000;
+                        font-size: 11px;
+                        page-break-inside: avoid;
+                    }
+                    .summary h3 {
+                        margin-bottom: 10px;
+                        text-align: center;
+                    }
+                    .summary-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 10px;
+                        margin-top: 10px;
+                    }
+                    .summary-item {
+                        text-align: center;
+                    }
+                    .summary-value {
+                        font-size: 14px;
+                        font-weight: bold;
+                    }
+                    .summary-label {
+                        font-size: 9px;
+                        color: #666;
+                    }
+                    .grade-excellent { color: #27ae60; font-weight: bold; }
+                    .grade-good { color: #3498db; font-weight: bold; }
+                    .grade-satisfactory { color: #f39c12; font-weight: bold; }
+                    .grade-unsatisfactory { color: #e74c3c; font-weight: bold; }
+                    
+                    @media print {
+                        body { 
+                            margin: 0; 
+                            padding: 15px;
+                        }
+                        .no-print { 
+                            display: none; 
+                        }
+                        .page-break {
+                            page-break-before: always;
+                        }
+                    }
+                    
+                    .controls {
+                        text-align: center;
+                        margin: 20px 0;
+                        padding: 15px;
+                        background: #f8f9fa;
+                        border-radius: 5px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="page">
+                    ${htmlContent}
+                    <div class="controls no-print">
+                        <button onclick="window.print()" style="padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            🖨️ Печать / Сохранить как PDF
+                        </button>
+                        <button onclick="window.close()" style="padding: 10px 20px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            ✖️ Закрыть
+                        </button>
+                        <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                            В диалоге печати выберите "Сохранить как PDF" для создания PDF файла
+                        </p>
+                    </div>
+                </div>
+                <script>
+                    // Автоматически открыть диалог печати
+                    setTimeout(() => {
+                        window.print();
+                    }, 500);
+                </script>
+            </body>
+            </html>
+        `);
         
-        // Заголовок (английскими буквами)
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ACADEMIC PERFORMANCE REPORT', 105, 20, { align: 'center' });
-        
-        // Информация о курсе
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Course: ${formatText(data.course.name)}`, 20, 35);
-        doc.text(`Subject: ${formatText(data.course.discipline)}`, 20, 42);
-        doc.text(`Instructor: ${formatText(data.course.teacher.lastName)} ${formatText(data.course.teacher.firstName)}`, 20, 49);
-        doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, 20, 56);
-        
-        // Статистика
-        doc.text(`Students: ${data.students.length}`, 140, 35);
-        doc.text(`Labs: ${data.labs.length}`, 140, 42);
-        doc.text(`Avg Submission: ${calculateAverageSubmissionRate(data.students)}%`, 140, 49);
-        
-        // Подготовка данных для таблицы (английские заголовки)
-        const headers = [
-            '#',
-            'Student',
-            'Group',
-            ...data.labs.map((lab, index) => `Lab${index + 1}`),
-            'Average',
-            'Status'
-        ];
-        
-        const rows = data.students.map((student, index) => {
-            const grades = data.labs.map(lab => {
-                const studentLab = student.labs.find(sl => sl.lab_id === lab.id);
-                if (!studentLab || !studentLab.submitted) return '-';
-                return studentLab.score !== null ? studentLab.score.toString() : 'sub';
-            });
-            
-            const submittedCount = student.labs.filter(lab => lab.submitted).length;
-            const status = submittedCount === data.labs.length ? 'Completed' : 
-                          submittedCount > 0 ? 'In Progress' : 'Not Started';
-            
-            return [
-                (index + 1).toString(),
-                `${formatText(student.lastName)} ${formatText(student.firstName)}`,
-                student.group || '-',
-                ...grades,
-                student.stats.average_score ? student.stats.average_score.toFixed(1) : '-',
-                status
-            ];
-        });
-        
-        // Генерация таблицы
-        doc.autoTable({
-            startY: 65,
-            head: [headers],
-            body: rows,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] },
-            alternateRowStyles: { fillColor: [245, 245, 245] }
-        });
-        
-        // Сохранение PDF
-        const fileName = `Report_${data.course.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-        doc.save(fileName);
-        
-        showAlert('PDF report successfully generated and downloaded', 'success');
+        printWindow.document.close();
         
     } catch (error) {
-        console.error('Error generating PDF:', error);
-        showAlert('Error generating PDF: ' + error.message, 'error');
+        console.error('Ошибка генерации PDF:', error);
+        showAlert('Ошибка генерации PDF: ' + error.message, 'error');
     }
 }
+
+// Генерация HTML контента для печати
+function generatePrintHTML(data) {
+    const { course, labs, students } = data;
+    
+    let html = `
+        <div class="header">
+            <h1>ВЕДОМОСТЬ УСПЕВАЕМОСТИ</h1>
+            <div style="font-size: 12px; margin-top: 5px;">
+                Астраханский государственный технический университет
+            </div>
+        </div>
+        
+        <div class="course-info">
+            <p><strong>Курс:</strong> ${course.name}</p>
+            <p><strong>Дисциплина:</strong> ${course.discipline}</p>
+            <p><strong>Преподаватель:</strong> ${course.teacher.lastName} ${course.teacher.firstName}</p>
+            <p><strong>Дата формирования:</strong> ${new Date().toLocaleDateString('ru-RU')}</p>
+            <p><strong>Учебный год:</strong> ${new Date().getFullYear()}-${new Date().getFullYear() + 1}</p>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th width="30">№</th>
+                    <th width="200">Студент</th>
+                    <th width="60">Группа</th>
+    `;
+    
+    // Заголовки лабораторных работ
+    labs.forEach((lab, index) => {
+        html += `<th width="40" title="${lab.title}">ЛР${index + 1}</th>`;
+    });
+    
+    html += `
+                    <th width="50">Сдано</th>
+                    <th width="50">Средний</th>
+                    <th width="80">Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    // Данные студентов
+    students.forEach((student, index) => {
+        const submittedCount = student.labs.filter(lab => lab.submitted).length;
+        const checkedCount = student.labs.filter(lab => lab.score !== null).length;
+        const status = submittedCount === labs.length ? 'Завершено' : 
+                      submittedCount > 0 ? 'В процессе' : 'Не начато';
+        
+        const averageGradeClass = getAverageGradeClass(student.stats.average_score);
+        
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td class="student-name">
+                    <strong>${student.lastName} ${student.firstName}</strong>
+                    <div style="font-size: 8px; color: #666;">${student.email}</div>
+                </td>
+                <td>${student.group || '-'}</td>
+        `;
+        
+        // Оценки по лабораторным
+        student.labs.forEach(lab => {
+            let grade = '-';
+            let gradeClass = '';
+            
+            if (lab.submitted) {
+                if (lab.score !== null) {
+                    grade = lab.score;
+                    if (lab.score >= 9) gradeClass = 'grade-excellent';
+                    else if (lab.score >= 7) gradeClass = 'grade-good';
+                    else if (lab.score >= 5) gradeClass = 'grade-satisfactory';
+                    else gradeClass = 'grade-unsatisfactory';
+                } else {
+                    grade = '✓';
+                }
+            }
+            
+            html += `<td class="${gradeClass}">${grade}</td>`;
+        });
+        
+        html += `
+                <td><strong>${submittedCount}/${labs.length}</strong></td>
+                <td class="${averageGradeClass}"><strong>${student.stats.average_score || '-'}</strong></td>
+                <td>${status}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+            </tbody>
+        </table>
+        
+        <div class="summary">
+            <h3>СТАТИСТИКА КУРСА</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-value">${students.length}</div>
+                    <div class="summary-label">Студентов</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${labs.length}</div>
+                    <div class="summary-label">Лабораторных работ</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${calculateTotalSubmissions(data)}</div>
+                    <div class="summary-label">Выполнено работ</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${calculateAverageSubmissionRate(students)}%</div>
+                    <div class="summary-label">Средняя сдача</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">${calculateOverallAverage(data)}</div>
+                    <div class="summary-label">Средний балл</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 10px;">
+                <p><strong>Распределение по оценкам:</strong></p>
+                <p>Отличники (9-10): ${countStudentsByGrade(students, 9, 10)} | 
+                   Хорошисты (7-8.9): ${countStudentsByGrade(students, 7, 8.9)} | 
+                   Удовлетворительно (5-6.9): ${countStudentsByGrade(students, 5, 6.9)} | 
+                   Неудовлетворительно: ${countStudentsByGrade(students, 0, 4.9)}</p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 10px; text-align: right;">
+            <p>Подпись преподавателя: ___________________ / ${course.teacher.lastName} ${course.teacher.firstName[0]}./</p>
+            <p>Дата: "${new Date().toLocaleDateString('ru-RU')}" г.</p>
+        </div>
+    `;
+    
+    return html;
+}
+
+// Вспомогательная функция для подсчета студентов по оценкам
+function countStudentsByGrade(students, min, max) {
+    return students.filter(student => {
+        const avg = student.stats.average_score;
+        return avg && avg >= min && avg <= max;
+    }).length;
+}
+
+
 
 // Печать PDF
 function printPDF(data) {
@@ -1973,9 +2214,9 @@ function generateTableStatement(data) {
     return html;
 }
 
-// Вспомогательные функции для ведомости
+// Функция для определения класса средней оценки
 function getAverageGradeClass(average) {
-    if (!average) return 'grade-pending';
+    if (!average) return '';
     if (average >= 9) return 'grade-excellent';
     if (average >= 7) return 'grade-good';
     if (average >= 5) return 'grade-satisfactory';
