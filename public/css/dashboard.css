@@ -381,6 +381,59 @@
     background: var(--success-color);
 }
 
+/* Улучшение стилей календаря */
+.calendar-day {
+    position: relative;
+    min-height: 100px;
+}
+
+.day-events {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+.calendar-event {
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.calendar-event:hover {
+    transform: scale(1.02);
+}
+
+.calendar-event-more {
+    background: #6c757d;
+    color: white;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    text-align: center;
+    cursor: pointer;
+}
+
+/* Улучшение скролла для событий */
+.day-events::-webkit-scrollbar {
+    width: 3px;
+}
+
+.day-events::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.day-events::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.day-events::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
 /* Стили для списка дедлайнов */
 .no-deadlines {
     text-align: center;
