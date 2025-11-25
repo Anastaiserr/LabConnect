@@ -345,6 +345,104 @@
     font-weight: 600;
 }
 
+/* Стили для событий календаря */
+.calendar-event {
+    background: var(--secondary-color);
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    margin-top: 0.2rem;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.3s;
+}
+
+.calendar-event:hover {
+    background: #2980b9;
+    transform: scale(1.05);
+}
+
+.calendar-event-pending {
+    background: var(--warning-color);
+}
+
+.calendar-event-active {
+    background: var(--secondary-color);
+}
+
+.calendar-event-overdue {
+    background: var(--danger-color);
+}
+
+.calendar-event-completed {
+    background: var(--success-color);
+}
+
+/* Стили для списка дедлайнов */
+.no-deadlines {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.deadline-item {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid var(--secondary-color);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.deadline-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.deadline-item.overdue {
+    border-left-color: var(--danger-color);
+    background: #fff5f5;
+}
+
+.deadline-item.completed {
+    border-left-color: var(--success-color);
+    background: #f0fff4;
+}
+
+.deadline-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--dark-color);
+}
+
+.deadline-course {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.deadline-date {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--dark-color);
+    margin-bottom: 0.5rem;
+}
+
+.deadline-status {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
 /* Стили для чата */
 .chat-container, .teacher-chat-container {
     display: grid;
